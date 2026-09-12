@@ -70,6 +70,7 @@ function cargarVista(nombre) {
   document.querySelector(`.nav-btn[data-view="${nombre}"]`)?.classList.add('active');
 
   if (nombre === 'expedientes') cargarExpedientes();
+  if (nombre === 'documental') cargarDocumental();
   if (nombre === 'config') cargarConfig();
 }
 
@@ -124,14 +125,9 @@ async function cargarExpedientes() {
       <td>${escapeHtml(exp.nombre)}</td>
       <td>${escapeHtml(exp.email)}</td>
       <td>${escapeHtml(exp.abogado || '—')}</td>
-      <td>
-        <span class="progress-bar ${exp.porcentaje >= 100 ? 'completo' : ''}"><div style="width:${exp.porcentaje}%"></div></span>
-        ${exp.porcentaje}%
-      </td>
-      <td>${badgeEstado(exp.estado)}</td>
       <td><span class="badge badge-fase">${escapeHtml(etiquetaFase(exp.fase, fases))}</span></td>
       <td>${fmtFecha(exp.created_at)}</td>
-      <td><button class="btn-secondary" data-id="${exp.id}">Ver</button></td>
+      <td><button class="btn-secondary" data-id="${exp.id}" data-origen="expedientes">Ver</button></td>
     </tr>`
     )
     .join('');
@@ -140,7 +136,48 @@ async function cargarExpedientes() {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = el.dataset.id || el.closest('tr')?.dataset.id;
-      if (id) abrirDetalle(Number(id));
+      if (id) abrirDetalle(Number(id), 'expedientes');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------
+// DOCUMENTAL (seguimiento de la recopilación de documentos por expediente)
+// ---------------------------------------------------------------------
+
+async function cargarDocumental() {
+  const [{ expedientes }, fases] = await Promise.all([api('/expedientes'), obtenerFases()]);
+  const tbody = document.getElementById('tabla-documental');
+  const vacio = document.getElementById('documental-vacio');
+
+  if (expedientes.length === 0) {
+    tbody.innerHTML = '';
+    vacio.classList.remove('hidden');
+    return;
+  }
+  vacio.classList.add('hidden');
+
+  tbody.innerHTML = expedientes
+    .map(
+      (exp) => `
+    <tr data-id="${exp.id}" class="fila-expediente" style="cursor:pointer">
+      <td>${escapeHtml(exp.nombre)}</td>
+      <td>
+        <span class="progress-bar ${exp.porcentaje >= 100 ? 'completo' : ''}"><div style="width:${exp.porcentaje}%"></div></span>
+        ${exp.porcentaje}%
+      </td>
+      <td>${badgeEstado(exp.estado)}</td>
+      <td><span class="badge badge-fase">${escapeHtml(etiquetaFase(exp.fase, fases))}</span></td>
+      <td><button class="btn-secondary" data-id="${exp.id}" data-origen="documental">Ver</button></td>
+    </tr>`
+    )
+    .join('');
+
+  tbody.querySelectorAll('tr, button').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id || el.closest('tr')?.dataset.id;
+      if (id) abrirDetalle(Number(id), 'documental');
     });
   });
 }
@@ -193,9 +230,12 @@ document.getElementById('btn-nuevo-expediente').addEventListener('click', () => 
 // DETALLE DE EXPEDIENTE
 // ---------------------------------------------------------------------
 
-document.getElementById('btn-volver').addEventListener('click', () => cargarVista('expedientes'));
+let vistaOrigenDetalle = 'expedientes';
 
-async function abrirDetalle(id) {
+document.getElementById('btn-volver').addEventListener('click', () => cargarVista(vistaOrigenDetalle));
+
+async function abrirDetalle(id, origen) {
+  vistaOrigenDetalle = origen || 'expedientes';
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
   document.getElementById('view-detalle').classList.remove('hidden');
   document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));

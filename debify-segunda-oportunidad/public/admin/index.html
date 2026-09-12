@@ -18,55 +18,88 @@
   </div>
 
   <div id="app" class="app hidden">
-    <header class="topbar">
-      <div class="brand">Debify <span class="muted">· Segunda Oportunidad</span></div>
-      <nav>
-        <button class="nav-btn active" data-view="expedientes">Expedientes</button>
-        <button class="nav-btn" data-view="config">Configuración del checklist</button>
-      </nav>
-    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Debify <span class="muted">· Panel interno</span></div>
+        <nav class="sidebar-nav">
+          <div class="sidebar-seccion">
+            <div class="sidebar-titulo">Casos</div>
+            <button class="nav-btn active" data-view="expedientes">📋 Expedientes</button>
+            <button class="nav-btn" data-view="documental">📄 Documental</button>
+          </div>
+          <div class="sidebar-seccion">
+            <div class="sidebar-titulo">Próximamente</div>
+            <button class="nav-btn nav-btn-disabled" disabled title="Próximamente">🗂️ Administración</button>
+            <button class="nav-btn nav-btn-disabled" disabled title="Próximamente">📈 Ventas</button>
+          </div>
+          <div class="sidebar-seccion sidebar-seccion-final">
+            <button class="nav-btn" data-view="config">⚙️ Configuración del checklist</button>
+          </div>
+        </nav>
+      </aside>
 
-    <main>
-      <!-- VISTA: LISTADO DE EXPEDIENTES -->
-      <section id="view-expedientes" class="view">
-        <div class="view-header">
-          <h2>Expedientes</h2>
-          <button id="btn-nuevo-expediente" class="btn-primary">+ Nuevo expediente</button>
-        </div>
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Email</th>
-              <th>Abogado</th>
-              <th>Progreso</th>
-              <th>Estado</th>
-              <th>Fase</th>
-              <th>Alta</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="tabla-expedientes"></tbody>
-        </table>
-        <p id="expedientes-vacio" class="muted hidden">Todavía no hay expedientes. Crea el primero con el botón de arriba.</p>
-      </section>
+      <main>
+        <!-- VISTA: LISTADO GENERAL DE EXPEDIENTES (alta y datos del caso) -->
+        <section id="view-expedientes" class="view">
+          <div class="view-header">
+            <h2>Expedientes</h2>
+            <button id="btn-nuevo-expediente" class="btn-primary">+ Nuevo expediente</button>
+          </div>
+          <p class="muted">Aquí se dan de alta los casos. En cuanto se crea un expediente, aparece también en la pestaña "Documental" para empezar a recopilar la documentación.</p>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Email</th>
+                <th>Abogado</th>
+                <th>Fase</th>
+                <th>Alta</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-expedientes"></tbody>
+          </table>
+          <p id="expedientes-vacio" class="muted hidden">Todavía no hay expedientes. Crea el primero con el botón de arriba.</p>
+        </section>
 
-      <!-- VISTA: DETALLE DE UN EXPEDIENTE -->
-      <section id="view-detalle" class="view hidden">
-        <button class="btn-link" id="btn-volver">← Volver al listado</button>
-        <div id="detalle-contenido"></div>
-      </section>
+        <!-- VISTA: DOCUMENTAL (seguimiento de la recopilación de documentos) -->
+        <section id="view-documental" class="view hidden">
+          <div class="view-header">
+            <h2>Documental</h2>
+          </div>
+          <p class="muted">Seguimiento de la documentación aportada por cada cliente. Los expedientes nuevos se crean desde la pestaña "Expedientes".</p>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Progreso</th>
+                <th>Estado</th>
+                <th>Fase</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-documental"></tbody>
+          </table>
+          <p id="documental-vacio" class="muted hidden">Todavía no hay expedientes. Crea el primero desde la pestaña "Expedientes".</p>
+        </section>
 
-      <!-- VISTA: CONFIGURACIÓN DEL CHECKLIST -->
-      <section id="view-config" class="view hidden">
-        <div class="view-header">
-          <h2>Configuración del checklist documental</h2>
-          <button id="btn-nuevo-bloque" class="btn-primary">+ Nuevo bloque</button>
-        </div>
-        <p class="muted">Aquí se define qué preguntas y documentos se piden al cliente. Los cambios se aplican de inmediato a los expedientes nuevos y a los ya existentes.</p>
-        <div id="config-bloques"></div>
-      </section>
-    </main>
+        <!-- VISTA: DETALLE DE UN EXPEDIENTE -->
+        <section id="view-detalle" class="view hidden">
+          <button class="btn-link" id="btn-volver">← Volver</button>
+          <div id="detalle-contenido"></div>
+        </section>
+
+        <!-- VISTA: CONFIGURACIÓN DEL CHECKLIST -->
+        <section id="view-config" class="view hidden">
+          <div class="view-header">
+            <h2>Configuración del checklist documental</h2>
+            <button id="btn-nuevo-bloque" class="btn-primary">+ Nuevo bloque</button>
+          </div>
+          <p class="muted">Aquí se define qué preguntas y documentos se piden al cliente. Los cambios se aplican de inmediato a los expedientes nuevos y a los ya existentes.</p>
+          <div id="config-bloques"></div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <!-- MODAL genérico -->
