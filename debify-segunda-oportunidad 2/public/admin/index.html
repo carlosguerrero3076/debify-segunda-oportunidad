@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Debify · Panel interno</title>
+<link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div id="gate" class="gate hidden">
+    <form id="gate-form" class="gate-card">
+      <h1>Debify</h1>
+      <p class="muted">Introduce la clave de acceso al panel interno.</p>
+      <input type="password" id="gate-key" placeholder="Clave de administración" autocomplete="off" required />
+      <button type="submit">Entrar</button>
+      <p id="gate-error" class="error hidden"></p>
+    </form>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">Debify <span class="muted">· Segunda Oportunidad</span></div>
+      <nav>
+        <button class="nav-btn active" data-view="expedientes">Expedientes</button>
+        <button class="nav-btn" data-view="config">Configuración del checklist</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- VISTA: LISTADO DE EXPEDIENTES -->
+      <section id="view-expedientes" class="view">
+        <div class="view-header">
+          <h2>Expedientes</h2>
+          <button id="btn-nuevo-expediente" class="btn-primary">+ Nuevo expediente</button>
+        </div>
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Email</th>
+              <th>Abogado</th>
+              <th>Progreso</th>
+              <th>Estado</th>
+              <th>Alta</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-expedientes"></tbody>
+        </table>
+        <p id="expedientes-vacio" class="muted hidden">Todavía no hay expedientes. Crea el primero con el botón de arriba.</p>
+      </section>
+
+      <!-- VISTA: DETALLE DE UN EXPEDIENTE -->
+      <section id="view-detalle" class="view hidden">
+        <button class="btn-link" id="btn-volver">← Volver al listado</button>
+        <div id="detalle-contenido"></div>
+      </section>
+
+      <!-- VISTA: CONFIGURACIÓN DEL CHECKLIST -->
+      <section id="view-config" class="view hidden">
+        <div class="view-header">
+          <h2>Configuración del checklist documental</h2>
+          <button id="btn-nuevo-bloque" class="btn-primary">+ Nuevo bloque</button>
+        </div>
+        <p class="muted">Aquí se define qué preguntas y documentos se piden al cliente. Los cambios se aplican de inmediato a los expedientes nuevos y a los ya existentes.</p>
+        <div id="config-bloques"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL genérico -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
