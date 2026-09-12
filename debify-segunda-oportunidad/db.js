@@ -90,6 +90,18 @@ CREATE TABLE IF NOT EXISTS comentarios (
   texto TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS propuestas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expediente_id INTEGER NOT NULL REFERENCES expedientes(id) ON DELETE CASCADE,
+  texto TEXT NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  estado TEXT NOT NULL DEFAULT 'enviada' CHECK(estado IN ('enviada','aceptada')),
+  enviada_at TEXT NOT NULL,
+  aceptada_at TEXT,
+  aceptada_nombre TEXT,
+  aceptada_ip TEXT
+);
 `);
 
 // --- Migracion: columna para el recordatorio recurrente cada 48h ---
@@ -313,6 +325,44 @@ function listarComentarios(expedienteId) {
     .all(expedienteId);
 }
 
+// ---------- Propuestas de honorarios (aceptación simple, sin firma electrónica formal) ----------
+function crearPropuesta(expedienteId, texto) {
+  const token = generarToken();
+  const ts = nowIso();
+  db.prepare(
+    `INSERT INTO propuestas (expediente_id, texto, token, estado, enviada_at) VALUES (?, ?, ?, 'enviada', ?)`
+  ).run(expedienteId, texto, token, ts);
+  const id = Number(db.prepare('SELECT last_insert_rowid() AS id').get().id);
+  registrarAuditoria(expedienteId, 'abogado', 'propuesta_enviada', null);
+  return getPropuestaPorId(id);
+}
+
+function getPropuestaPorId(id) {
+  return db.prepare('SELECT * FROM propuestas WHERE id = ?').get(id);
+}
+
+function getPropuestaPorToken(token) {
+  return db.prepare('SELECT * FROM propuestas WHERE token = ?').get(token);
+}
+
+function listarPropuestasPorExpediente(expedienteId) {
+  return db
+    .prepare('SELECT * FROM propuestas WHERE expediente_id = ? ORDER BY enviada_at DESC')
+    .all(expedienteId);
+}
+
+function aceptarPropuesta(token, { nombre, ip }) {
+  const propuesta = getPropuestaPorToken(token);
+  if (!propuesta) return null;
+  if (propuesta.estado === 'aceptada') return propuesta; // ya aceptada, idempotente
+  const ts = nowIso();
+  db.prepare(
+    `UPDATE propuestas SET estado = 'aceptada', aceptada_at = ?, aceptada_nombre = ?, aceptada_ip = ? WHERE id = ?`
+  ).run(ts, nombre, ip ?? null, propuesta.id);
+  registrarAuditoria(propuesta.expediente_id, 'cliente', 'propuesta_aceptada', `Firmado por: ${nombre}`);
+  return getPropuestaPorId(propuesta.id);
+}
+
 // ---------- Respuestas (progreso del expediente) ----------
 function getRespuestasPorExpediente(expedienteId) {
   return db
@@ -437,4 +487,9 @@ module.exports = {
   actualizarFase,
   crearComentario,
   listarComentarios,
+  crearPropuesta,
+  getPropuestaPorId,
+  getPropuestaPorToken,
+  listarPropuestasPorExpediente,
+  aceptarPropuesta,
 };

@@ -244,10 +244,11 @@ async function abrirDetalle(id, origen) {
 }
 
 async function renderDetalle(id) {
-  const [{ expediente, progreso, link }, fases, { comentarios }] = await Promise.all([
+  const [{ expediente, progreso, link }, fases, { comentarios }, { propuestas }] = await Promise.all([
     api(`/expedientes/${id}`),
     obtenerFases(),
     api(`/expedientes/${id}/comentarios`),
+    api(`/expedientes/${id}/propuestas`),
   ]);
   const cont = document.getElementById('detalle-contenido');
 
@@ -279,6 +280,7 @@ async function renderDetalle(id) {
     </div>
     ${progreso.bloques.map((b) => renderBloqueDetalle(id, b)).join('')}
     ${renderComentarios(comentarios)}
+    ${renderPropuestas(propuestas)}
   `;
 
   document.getElementById('btn-copiar-enlace').addEventListener('click', () => {
@@ -310,6 +312,31 @@ async function renderDetalle(id) {
     localStorage.setItem(AUTOR_KEY, autor);
     await api(`/expedientes/${id}/comentarios`, { method: 'POST', body: JSON.stringify({ autor, texto }) });
     renderDetalle(id);
+  });
+
+  document.getElementById('form-propuesta')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const texto = (fd.get('texto') || '').toString().trim();
+    if (!texto) return;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try {
+      const { link } = await api(`/expedientes/${id}/propuestas`, { method: 'POST', body: JSON.stringify({ texto }) });
+      await renderDetalle(id);
+      abrirModal(`
+        <h3>Propuesta enviada</h3>
+        <p>Se ha enviado un email al cliente con este enlace para que la lea y la acepte:</p>
+        <input type="text" readonly value="${link}" onclick="this.select()" />
+        <div class="modal-acciones"><button class="btn-primary" id="modal-ok">Entendido</button></div>
+      `);
+      document.getElementById('modal-ok').addEventListener('click', cerrarModal);
+    } catch (err) {
+      alert('Error: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Enviar propuesta al cliente';
+    }
   });
 
   cont.querySelectorAll('.btn-rechazar').forEach((btn) => {
@@ -412,6 +439,50 @@ function renderComentarios(comentarios) {
                     <span class="muted">${fmtFechaHora(c.created_at)}</span>
                   </div>
                   <div class="comentario-texto">${escapeHtml(c.texto)}</div>
+                </div>`
+                )
+                .join('')}
+            </div>`
+      }
+    </div>
+  `;
+}
+
+function badgePropuesta(estado) {
+  return estado === 'aceptada'
+    ? '<span class="badge badge-completo">Aceptada</span>'
+    : '<span class="badge badge-progreso">Enviada, pendiente de aceptar</span>';
+}
+
+function renderPropuestas(propuestas) {
+  return `
+    <div class="bloque-card">
+      <div class="bloque-card-header">
+        <h3>Propuesta de honorarios</h3>
+        <span class="muted">Aceptación sencilla (check + nombre), no es firma electrónica formal</span>
+      </div>
+      <form id="form-propuesta" class="form-comentario">
+        <textarea name="texto" rows="5" placeholder="Escribe aquí el texto de la propuesta de honorarios que recibirá el cliente..." required></textarea>
+        <button type="submit" class="btn-primary">Enviar propuesta al cliente</button>
+      </form>
+      ${
+        propuestas.length === 0
+          ? '<p class="muted" style="margin-top:.75rem">Todavía no se ha enviado ninguna propuesta.</p>'
+          : `<div class="lista-comentarios">
+              ${propuestas
+                .map(
+                  (p) => `
+                <div class="comentario">
+                  <div class="comentario-cabecera">
+                    ${badgePropuesta(p.estado)}
+                    <span class="muted">Enviada el ${fmtFechaHora(p.enviada_at)}</span>
+                  </div>
+                  ${
+                    p.estado === 'aceptada'
+                      ? `<div class="item-valor" style="color:var(--verde)">Aceptada por ${escapeHtml(p.aceptada_nombre)} el ${fmtFechaHora(p.aceptada_at)}</div>`
+                      : ''
+                  }
+                  <div class="comentario-texto muted" style="margin-top:.4rem">${escapeHtml(p.texto)}</div>
                 </div>`
                 )
                 .join('')}

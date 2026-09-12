@@ -306,6 +306,42 @@ async function handleAdminApi(req, res, url) {
     return sendJson(res, 201, { comentarios: db.listarComentarios(id) });
   }
 
+  // GET /api/admin/expedientes/:id/propuestas -> historial de propuestas de honorarios
+  if (req.method === 'GET' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'propuestas') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    return sendJson(res, 200, { propuestas: db.listarPropuestasPorExpediente(id) });
+  }
+
+  // POST /api/admin/expedientes/:id/propuestas   { texto }
+  // Crea una propuesta de honorarios y se la envía por email al cliente con
+  // un enlace público para que la lea y la acepte (check + botón, sin firma
+  // electrónica formal).
+  if (req.method === 'POST' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'propuestas') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    const body = await readJsonBody(req);
+    const texto = (body.texto || '').toString().trim();
+    if (!texto) return sendError(res, 400, 'El texto de la propuesta no puede estar vacío');
+
+    const propuesta = db.crearPropuesta(id, texto);
+    const link = `${BASE_URL}/propuesta/?token=${propuesta.token}`;
+
+    await enviarEmail({
+      to: expediente.email,
+      subject: 'Debify — Propuesta de honorarios',
+      body:
+        `Hola ${expediente.nombre},\n\n` +
+        `Te hacemos llegar la propuesta de honorarios para tu expediente. Puedes leerla y confirmarla en este enlace:\n\n` +
+        `${link}\n\n` +
+        `Un saludo,\nEquipo Debify`,
+    });
+
+    return sendJson(res, 201, { propuesta, link });
+  }
+
   // GET /api/admin/expedientes/:id/descargar  -> ZIP con todos los documentos
   if (
     req.method === 'GET' &&
@@ -425,6 +461,62 @@ async function rechazarItem(req, res, expedienteId, itemId) {
   });
 
   return sendJson(res, 200, { ok: true });
+}
+
+// ---------------------------------------------------------------------
+// Rutas: PROPUESTA DE HONORARIOS (público, por token propio de la propuesta)
+// ---------------------------------------------------------------------
+// Aceptación sencilla (checkbox + botón), NO es una firma electrónica
+// formal/cualificada: sirve para dejar constancia de que el cliente ha
+// leído y aceptado la propuesta antes de empezar a trabajar en el caso.
+
+function ipDelCliente(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return xff.split(',')[0].trim();
+  return req.socket?.remoteAddress || null;
+}
+
+async function handlePropuestaApi(req, res, url) {
+  const parts = url.pathname.split('/').filter(Boolean); // ['api','propuesta', token, ...]
+  const token = parts[2];
+  const propuesta = token && db.getPropuestaPorToken(token);
+  if (!propuesta) return sendError(res, 404, 'Enlace no válido o propuesta no encontrada');
+
+  const sub = parts.slice(3);
+
+  // GET /api/propuesta/:token
+  if (req.method === 'GET' && sub.length === 0) {
+    const expediente = db.getExpedientePorId(propuesta.expediente_id);
+    return sendJson(res, 200, {
+      propuesta: {
+        texto: propuesta.texto,
+        estado: propuesta.estado,
+        enviada_at: propuesta.enviada_at,
+        aceptada_at: propuesta.aceptada_at,
+        aceptada_nombre: propuesta.aceptada_nombre,
+      },
+      cliente: { nombre: expediente?.nombre || '' },
+    });
+  }
+
+  // POST /api/propuesta/:token/aceptar   { nombre }
+  if (req.method === 'POST' && sub.length === 1 && sub[0] === 'aceptar') {
+    const body = await readJsonBody(req);
+    const nombre = (body.nombre || '').toString().trim();
+    if (!nombre) return sendError(res, 400, 'Escribe tu nombre completo para confirmar la aceptación');
+
+    const actualizada = db.aceptarPropuesta(token, { nombre, ip: ipDelCliente(req) });
+    return sendJson(res, 200, {
+      propuesta: {
+        texto: actualizada.texto,
+        estado: actualizada.estado,
+        aceptada_at: actualizada.aceptada_at,
+        aceptada_nombre: actualizada.aceptada_nombre,
+      },
+    });
+  }
+
+  return sendError(res, 404, 'Ruta no encontrada');
 }
 
 // ---------------------------------------------------------------------
@@ -552,6 +644,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/cliente')) {
       return await handleClienteApi(req, res, url);
     }
+    if (url.pathname.startsWith('/api/propuesta')) {
+      return await handlePropuestaApi(req, res, url);
+    }
 
     // --- Frontend estático ---
     if (url.pathname === '/' ) {
@@ -565,11 +660,17 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/cliente' || url.pathname === '/cliente/') {
       return serveStatic(res, path.join(PUBLIC_DIR, 'cliente', 'index.html'));
     }
+    if (url.pathname === '/propuesta' || url.pathname === '/propuesta/') {
+      return serveStatic(res, path.join(PUBLIC_DIR, 'propuesta', 'index.html'));
+    }
     if (url.pathname.startsWith('/admin/')) {
       return serveStatic(res, path.join(PUBLIC_DIR, 'admin', url.pathname.replace('/admin/', '')));
     }
     if (url.pathname.startsWith('/cliente/')) {
       return serveStatic(res, path.join(PUBLIC_DIR, 'cliente', url.pathname.replace('/cliente/', '')));
+    }
+    if (url.pathname.startsWith('/propuesta/')) {
+      return serveStatic(res, path.join(PUBLIC_DIR, 'propuesta', url.pathname.replace('/propuesta/', '')));
     }
 
     return sendError(res, 404, 'No encontrado');

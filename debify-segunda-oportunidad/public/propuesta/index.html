@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Debify · Propuesta de honorarios</title>
+<link rel="stylesheet" href="/propuesta/propuesta.css" />
+</head>
+<body>
+  <div id="error-token" class="pantalla hidden">
+    <div class="card">
+      <h1>Enlace no válido</h1>
+      <p class="muted">Este enlace no es correcto o la propuesta ya no existe. Ponte en contacto con tu abogado/a de Debify.</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand">Debify</div>
+    </header>
+
+    <main>
+      <div class="card-propuesta">
+        <h1>Propuesta de honorarios</h1>
+        <p class="muted" id="subtitulo"></p>
+
+        <div id="texto-propuesta" class="texto-propuesta"></div>
+
+        <div id="zona-aceptacion" class="zona-aceptacion">
+          <label class="fila-check">
+            <input type="checkbox" id="check-leido" />
+            He leído y entiendo la propuesta de honorarios anterior.
+          </label>
+
+          <label class="campo-nombre">
+            Nombre completo (a modo de confirmación)
+            <input type="text" id="input-nombre" placeholder="Escribe tu nombre y apellidos" />
+          </label>
+
+          <button id="btn-aceptar" class="btn-primary" disabled>Aceptar propuesta</button>
+
+          <p class="aviso-legal">
+            Esta aceptación no constituye una firma electrónica cualificada, pero queda registrada
+            con fecha, hora y el nombre que introduzcas, como confirmación de que has leído y
+            aceptado esta propuesta.
+          </p>
+        </div>
+
+        <div id="zona-aceptada" class="zona-aceptada hidden">
+          <div class="check-ok">✓</div>
+          <p><strong>Propuesta aceptada</strong></p>
+          <p class="muted" id="detalle-aceptacion"></p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/propuesta/propuesta.js"></script>
+</body>
+</html>
