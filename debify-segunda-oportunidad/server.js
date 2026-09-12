@@ -265,6 +265,47 @@ async function handleAdminApi(req, res, url) {
     return sendJson(res, 200, { ok: true });
   }
 
+  // GET /api/admin/fases -> lista de fases posibles (para pintar el desplegable)
+  if (req.method === 'GET' && sub.length === 1 && sub[0] === 'fases') {
+    return sendJson(res, 200, { fases: db.FASES });
+  }
+
+  // PUT /api/admin/expedientes/:id/fase   { fase }
+  if (req.method === 'PUT' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'fase') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    const body = await readJsonBody(req);
+    try {
+      db.actualizarFase(id, body.fase);
+    } catch (err) {
+      return sendError(res, 400, err.message);
+    }
+    db.registrarAuditoria(id, 'abogado', 'fase_cambiada', body.fase);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  // GET /api/admin/expedientes/:id/comentarios
+  if (req.method === 'GET' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'comentarios') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    return sendJson(res, 200, { comentarios: db.listarComentarios(id) });
+  }
+
+  // POST /api/admin/expedientes/:id/comentarios   { autor, texto }
+  if (req.method === 'POST' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'comentarios') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    const body = await readJsonBody(req);
+    const texto = (body.texto || '').toString().trim();
+    const autor = (body.autor || 'Sin firmar').toString().trim() || 'Sin firmar';
+    if (!texto) return sendError(res, 400, 'El comentario no puede estar vacío');
+    db.crearComentario(id, autor, texto);
+    return sendJson(res, 201, { comentarios: db.listarComentarios(id) });
+  }
+
   // GET /api/admin/expedientes/:id/descargar  -> ZIP con todos los documentos
   if (
     req.method === 'GET' &&

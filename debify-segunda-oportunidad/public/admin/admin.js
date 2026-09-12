@@ -91,8 +91,22 @@ function badgeEstado(estado) {
   return `<span class="badge ${clase}">${texto}</span>`;
 }
 
+// Cache local de las fases posibles (se piden una vez al servidor).
+let FASES_CACHE = null;
+async function obtenerFases() {
+  if (!FASES_CACHE) {
+    const { fases } = await api('/fases');
+    FASES_CACHE = fases;
+  }
+  return FASES_CACHE;
+}
+
+function etiquetaFase(valor, fases) {
+  return fases.find((f) => f.value === valor)?.label || valor;
+}
+
 async function cargarExpedientes() {
-  const { expedientes } = await api('/expedientes');
+  const [{ expedientes }, fases] = await Promise.all([api('/expedientes'), obtenerFases()]);
   const tbody = document.getElementById('tabla-expedientes');
   const vacio = document.getElementById('expedientes-vacio');
 
@@ -115,6 +129,7 @@ async function cargarExpedientes() {
         ${exp.porcentaje}%
       </td>
       <td>${badgeEstado(exp.estado)}</td>
+      <td><span class="badge badge-fase">${escapeHtml(etiquetaFase(exp.fase, fases))}</span></td>
       <td>${fmtFecha(exp.created_at)}</td>
       <td><button class="btn-secondary" data-id="${exp.id}">Ver</button></td>
     </tr>`
@@ -189,7 +204,11 @@ async function abrirDetalle(id) {
 }
 
 async function renderDetalle(id) {
-  const { expediente, progreso, link } = await api(`/expedientes/${id}`);
+  const [{ expediente, progreso, link }, fases, { comentarios }] = await Promise.all([
+    api(`/expedientes/${id}`),
+    obtenerFases(),
+    api(`/expedientes/${id}/comentarios`),
+  ]);
   const cont = document.getElementById('detalle-contenido');
 
   cont.innerHTML = `
@@ -199,6 +218,12 @@ async function renderDetalle(id) {
       <div class="detalle-meta">
         <div><strong>Progreso:</strong> <span class="detalle-progreso-grande">${progreso.porcentajeTotal}%</span></div>
         <div><strong>Estado:</strong> ${badgeEstado(expediente.estado)}</div>
+        <div>
+          <strong>Fase:</strong>
+          <select id="select-fase">
+            ${fases.map((f) => `<option value="${f.value}" ${f.value === expediente.fase ? 'selected' : ''}>${escapeHtml(f.label)}</option>`).join('')}
+          </select>
+        </div>
         <div><strong>Abogado:</strong> ${escapeHtml(expediente.abogado || '—')}</div>
         <div><strong>Alta:</strong> ${fmtFecha(expediente.created_at)}</div>
       </div>
@@ -213,6 +238,7 @@ async function renderDetalle(id) {
       </div>
     </div>
     ${progreso.bloques.map((b) => renderBloqueDetalle(id, b)).join('')}
+    ${renderComentarios(comentarios)}
   `;
 
   document.getElementById('btn-copiar-enlace').addEventListener('click', () => {
@@ -224,6 +250,25 @@ async function renderDetalle(id) {
   });
   document.getElementById('btn-marcar-redaccion')?.addEventListener('click', async () => {
     await api(`/expedientes/${id}/marcar-redaccion`, { method: 'POST', body: '{}' });
+    renderDetalle(id);
+  });
+  document.getElementById('select-fase').addEventListener('change', async (e) => {
+    await api(`/expedientes/${id}/fase`, { method: 'PUT', body: JSON.stringify({ fase: e.target.value }) });
+    cargarExpedientes(); // por si vuelven al listado, que ya se vea actualizado
+  });
+
+  const AUTOR_KEY = 'debify_admin_autor';
+  const inputAutor = document.getElementById('input-comentario-autor');
+  if (inputAutor) inputAutor.value = localStorage.getItem(AUTOR_KEY) || '';
+
+  document.getElementById('form-comentario')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const autor = (fd.get('autor') || '').toString().trim();
+    const texto = (fd.get('texto') || '').toString().trim();
+    if (!texto) return;
+    localStorage.setItem(AUTOR_KEY, autor);
+    await api(`/expedientes/${id}/comentarios`, { method: 'POST', body: JSON.stringify({ autor, texto }) });
     renderDetalle(id);
   });
 
@@ -294,6 +339,44 @@ function renderBloqueDetalle(expedienteId, bloque) {
           </div>`;
         })
         .join('')}
+    </div>
+  `;
+}
+
+function fmtFechaHora(iso) {
+  return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderComentarios(comentarios) {
+  return `
+    <div class="bloque-card">
+      <div class="bloque-card-header">
+        <h3>Comentarios internos</h3>
+        <span class="muted">Solo visibles para el equipo, nunca para el cliente</span>
+      </div>
+      <form id="form-comentario" class="form-comentario">
+        <input type="text" name="autor" id="input-comentario-autor" placeholder="Tu nombre" required />
+        <textarea name="texto" rows="2" placeholder="Escribe una nota sobre este expediente..." required></textarea>
+        <button type="submit" class="btn-primary">Añadir comentario</button>
+      </form>
+      ${
+        comentarios.length === 0
+          ? '<p class="muted" style="margin-top:.75rem">Todavía no hay comentarios.</p>'
+          : `<div class="lista-comentarios">
+              ${comentarios
+                .map(
+                  (c) => `
+                <div class="comentario">
+                  <div class="comentario-cabecera">
+                    <strong>${escapeHtml(c.autor)}</strong>
+                    <span class="muted">${fmtFechaHora(c.created_at)}</span>
+                  </div>
+                  <div class="comentario-texto">${escapeHtml(c.texto)}</div>
+                </div>`
+                )
+                .join('')}
+            </div>`
+      }
     </div>
   `;
 }

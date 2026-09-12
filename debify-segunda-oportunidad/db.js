@@ -82,6 +82,14 @@ CREATE TABLE IF NOT EXISTS auditoria (
   detalle TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS comentarios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expediente_id INTEGER NOT NULL REFERENCES expedientes(id) ON DELETE CASCADE,
+  autor TEXT NOT NULL,
+  texto TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 `);
 
 // --- Migracion: columna para el recordatorio recurrente cada 48h ---
@@ -92,6 +100,27 @@ try {
 } catch (err) {
   // ya existe la columna (SQLite no soporta "ADD COLUMN IF NOT EXISTS")
 }
+
+// --- Migracion: fase del expediente (mas alla de la recopilacion documental:
+// redaccion, presentacion, proceso judicial...) ---
+try {
+  db.exec("ALTER TABLE expedientes ADD COLUMN fase TEXT NOT NULL DEFAULT 'documental'");
+} catch (err) {
+  // ya existe la columna
+}
+
+// Fases del ciclo de vida completo del expediente (mas alla de "estado",
+// que solo controla la recopilacion documental con el cliente).
+const FASES = [
+  { value: 'documental', label: 'Documental' },
+  { value: 'redaccion_demanda', label: 'Redacción de demanda' },
+  { value: 'demanda_presentada', label: 'Demanda presentada' },
+  { value: 'proceso_en_marcha', label: 'Proceso en marcha' },
+  { value: 'nombramiento_ac', label: 'Nombramiento de AC' },
+  { value: 'solicitud_epi', label: 'Solicitud de EPI' },
+  { value: 'concesion_exoneracion', label: 'Concesión de exoneración' },
+  { value: 'denegacion', label: 'Denegación' },
+];
 
 // --- Seed: checklist documental por defecto (editable luego desde el panel) ---
 function seedChecklistSiVacio() {
@@ -262,6 +291,28 @@ function tocarActividad(id) {
   db.prepare('UPDATE expedientes SET last_activity_at = ? WHERE id = ?').run(nowIso(), id);
 }
 
+function actualizarFase(id, fase) {
+  if (!FASES.some((f) => f.value === fase)) {
+    throw new Error(`Fase desconocida: ${fase}`);
+  }
+  db.prepare('UPDATE expedientes SET fase = ? WHERE id = ?').run(fase, id);
+}
+
+// ---------- Comentarios internos (solo visibles para el equipo, nunca para el cliente) ----------
+function crearComentario(expedienteId, autor, texto) {
+  const ts = nowIso();
+  db.prepare(
+    'INSERT INTO comentarios (expediente_id, autor, texto, created_at) VALUES (?, ?, ?, ?)'
+  ).run(expedienteId, autor, texto, ts);
+  registrarAuditoria(expedienteId, autor || 'abogado', 'comentario_anadido', texto.slice(0, 200));
+}
+
+function listarComentarios(expedienteId) {
+  return db
+    .prepare('SELECT * FROM comentarios WHERE expediente_id = ? ORDER BY created_at DESC')
+    .all(expedienteId);
+}
+
 // ---------- Respuestas (progreso del expediente) ----------
 function getRespuestasPorExpediente(expedienteId) {
   return db
@@ -382,4 +433,8 @@ module.exports = {
   getRespuestasPorExpediente,
   upsertRespuesta,
   calcularProgreso,
+  FASES,
+  actualizarFase,
+  crearComentario,
+  listarComentarios,
 };

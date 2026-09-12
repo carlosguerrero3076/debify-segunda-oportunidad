@@ -71,6 +71,20 @@ main { max-width: 980px; margin: 0 auto; padding: 2rem; }
 .badge-progreso { background: var(--azul-claro); color: var(--azul); }
 .badge-completo { background: var(--verde-claro); color: var(--verde); }
 .badge-redaccion { background: #fdf3e3; color: #8a5a00; }
+.badge-fase { background: #f1eafb; color: #5b3aa8; }
+
+#select-fase { font-size: .85rem; padding: .3rem .5rem; border: 1px solid var(--borde); border-radius: 6px; background: white; }
+
+.form-comentario { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+.form-comentario input, .form-comentario textarea {
+  width: 100%; padding: .55rem .7rem; border: 1px solid var(--borde); border-radius: 8px; font-size: .88rem; font-family: inherit; resize: vertical;
+}
+.form-comentario button { align-self: flex-start; }
+
+.lista-comentarios { display: flex; flex-direction: column; gap: .75rem; }
+.comentario { border-top: 1px solid var(--borde); padding-top: .6rem; }
+.comentario-cabecera { display: flex; justify-content: space-between; font-size: .82rem; margin-bottom: .2rem; }
+.comentario-texto { font-size: .88rem; white-space: pre-wrap; }
 
 .progress-bar { width: 100px; height: 8px; background: var(--borde); border-radius: 999px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: .5rem; }
 .progress-bar > div { height: 100%; background: var(--azul); }
