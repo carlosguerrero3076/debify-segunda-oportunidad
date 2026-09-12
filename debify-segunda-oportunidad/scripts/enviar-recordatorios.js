@@ -1,21 +1,28 @@
 // scripts/enviar-recordatorios.js
 //
-// Envía un recordatorio a los clientes cuyo expediente lleva 3 o 7 días sin
-// actividad y todavía no está al 100%. Pensado para ejecutarse periódicamente
-// con un cron del sistema, por ejemplo una vez al día:
+// Envía un recordatorio por email a los clientes cuyo expediente lleva 48
+// horas sin actividad y todavía no está al 100%. Se repite cada 48 horas
+// mientras el expediente siga incompleto (si el cliente sube algo, el
+// contador de 48h se reinicia a partir de esa nueva actividad).
 //
-//   0 9 * * *  cd /ruta/al/proyecto && node scripts/enviar-recordatorios.js
+// Esta función la llama automáticamente server.js cada hora mientras el
+// servidor está encendido (ver ejecutarRecordatoriosPeriodicamente en
+// server.js) — así no hace falta un Cron Job aparte de Render, que no
+// podría compartir el disco persistente de este servicio.
 //
-// No depende de que el servidor esté encendido: abre la base de datos
-// directamente.
+// También se puede ejecutar a mano, en cualquier momento, para probarlo o
+// forzar el envío inmediato:
+//
+//   node scripts/enviar-recordatorios.js
+//
+// (usa STORAGE_DIR igual que server.js, para leer el mismo disco persistente
+// si esa variable está definida)
 
 const db = require('../db');
 const { enviarEmail } = require('../lib/mailer');
 
-const TRES_DIAS_MS = 3 * 24 * 60 * 60 * 1000;
-const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
-
-async function main() {
+async function ejecutarRecordatorios({ horasAviso = Number(process.env.HORAS_RECORDATORIO || 48) } = {}) {
+  const intervaloMs = horasAviso * 60 * 60 * 1000;
   const expedientes = db.listarExpedientes().filter((e) => e.estado === 'en_progreso');
   const ahora = Date.now();
   let enviados = 0;
@@ -24,23 +31,27 @@ async function main() {
     const progreso = db.calcularProgreso(exp.id);
     if (progreso.porcentajeTotal >= 100) continue;
 
-    const inactivoMs = ahora - new Date(exp.last_activity_at).getTime();
+    const ultimaActividadMs = new Date(exp.last_activity_at).getTime();
+    const ultimoRecordatorioMs = exp.ultimo_recordatorio_at ? new Date(exp.ultimo_recordatorio_at).getTime() : 0;
+    // Punto de referencia: lo que sea más reciente entre la última actividad
+    // del cliente y el último recordatorio ya enviado. Así, si el cliente
+    // sube algo, el contador de 48h se reinicia.
+    const referencia = Math.max(ultimaActividadMs, ultimoRecordatorioMs);
 
-    if (inactivoMs >= SIETE_DIAS_MS && !exp.recordatorio_7d_enviado) {
-      await enviarRecordatorio(exp, progreso, 7);
-      db.db.prepare('UPDATE expedientes SET recordatorio_7d_enviado = 1 WHERE id = ?').run(exp.id);
-      enviados++;
-    } else if (inactivoMs >= TRES_DIAS_MS && !exp.recordatorio_3d_enviado) {
-      await enviarRecordatorio(exp, progreso, 3);
-      db.db.prepare('UPDATE expedientes SET recordatorio_3d_enviado = 1 WHERE id = ?').run(exp.id);
+    if (ahora - referencia >= intervaloMs) {
+      await enviarRecordatorio(exp, progreso);
+      db.db
+        .prepare('UPDATE expedientes SET ultimo_recordatorio_at = ? WHERE id = ?')
+        .run(new Date(ahora).toISOString(), exp.id);
       enviados++;
     }
   }
 
-  console.log(`Recordatorios enviados: ${enviados}`);
+  if (enviados > 0) console.log(`Recordatorios enviados: ${enviados}`);
+  return enviados;
 }
 
-async function enviarRecordatorio(expediente, progreso, dias) {
+async function enviarRecordatorio(expediente, progreso) {
   const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
   const link = `${BASE_URL}/cliente/?token=${expediente.token}`;
   await enviarEmail({
@@ -48,15 +59,20 @@ async function enviarRecordatorio(expediente, progreso, dias) {
     subject: `Debify — Te faltan ${100 - progreso.porcentajeTotal}% de documentos por aportar`,
     body:
       `Hola ${expediente.nombre},\n\n` +
-      `Han pasado ${dias} días sin novedades en tu expediente. Llevas un ${progreso.porcentajeTotal}% completado.\n\n` +
+      `Llevas un ${progreso.porcentajeTotal}% completado de tu expediente. Te faltan ${100 - progreso.porcentajeTotal}% de documentos por aportar para que podamos presentar tu demanda.\n\n` +
       `Puedes continuar donde lo dejaste en este enlace:\n${link}\n\n` +
-      `Cuanto antes lo completes, antes podremos presentar tu demanda.\n\n` +
       `Un saludo,\nEquipo Debify`,
   });
-  db.registrarAuditoria(expediente.id, 'sistema', 'recordatorio_enviado', `${dias} días de inactividad`);
+  db.registrarAuditoria(expediente.id, 'sistema', 'recordatorio_enviado', `${progreso.porcentajeTotal}% completado`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+module.exports = { ejecutarRecordatorios };
+
+// Si se ejecuta directamente ("node scripts/enviar-recordatorios.js"), lanza
+// la comprobación una vez y termina.
+if (require.main === module) {
+  ejecutarRecordatorios().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

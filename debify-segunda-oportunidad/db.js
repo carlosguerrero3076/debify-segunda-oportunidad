@@ -84,6 +84,15 @@ CREATE TABLE IF NOT EXISTS auditoria (
 );
 `);
 
+// --- Migracion: columna para el recordatorio recurrente cada 48h ---
+// (las columnas recordatorio_3d_enviado / recordatorio_7d_enviado se dejan
+// tal cual, sin usarlas ya, para no romper filas antiguas)
+try {
+  db.exec('ALTER TABLE expedientes ADD COLUMN ultimo_recordatorio_at TEXT');
+} catch (err) {
+  // ya existe la columna (SQLite no soporta "ADD COLUMN IF NOT EXISTS")
+}
+
 // --- Seed: checklist documental por defecto (editable luego desde el panel) ---
 function seedChecklistSiVacio() {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM bloques').get();

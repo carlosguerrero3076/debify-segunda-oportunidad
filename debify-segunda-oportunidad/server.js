@@ -19,6 +19,7 @@ const crypto = require('node:crypto');
 const db = require('./db');
 const { enviarEmail } = require('./lib/mailer');
 const { crearZip } = require('./lib/zip');
+const { ejecutarRecordatorios } = require('./scripts/enviar-recordatorios');
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -131,6 +132,19 @@ async function handleAdminApi(req, res, url) {
 
   const parts = url.pathname.split('/').filter(Boolean); // ['api','admin', ...]
   const sub = parts.slice(2); // tras 'api','admin'
+
+  // POST /api/admin/recordatorios/probar
+  // Fuerza ahora mismo la comprobación de recordatorios de 48h (sin esperar
+  // a que pasen esas 48h de verdad). Pensado solo para probar que el envío
+  // funciona correctamente.
+  if (req.method === 'POST' && sub.length === 2 && sub[0] === 'recordatorios' && sub[1] === 'probar') {
+    const body = await readJsonBody(req).catch(() => ({}));
+    // Permite forzar el umbral de horas solo para pruebas, por ejemplo
+    // {"horasAviso": 0} para que dispare sin esperar 48h de verdad.
+    const opciones = typeof body.horasAviso === 'number' ? { horasAviso: body.horasAviso } : undefined;
+    const enviados = await ejecutarRecordatorios(opciones);
+    return sendJson(res, 200, { enviados });
+  }
 
   // GET /api/admin/expedientes
   if (req.method === 'GET' && sub.length === 1 && sub[0] === 'expedientes') {
@@ -517,3 +531,19 @@ server.listen(PORT, () => {
   console.log(`Panel interno:  ${BASE_URL}/admin/?key=${ADMIN_KEY}`);
   console.log(`(los enlaces de cada cliente se generan al crear su expediente)\n`);
 });
+
+// ---------------------------------------------------------------------
+// Recordatorios automáticos cada 48h de inactividad
+// ---------------------------------------------------------------------
+// Se comprueba cada hora, mientras el servidor está encendido, si algún
+// expediente lleva 48h sin actividad y sin estar al 100%. No hace falta un
+// Cron Job aparte de Render: un servicio aparte no podría leer el mismo
+// disco persistente donde está la base de datos.
+const UNA_HORA_MS = 60 * 60 * 1000;
+function comprobarRecordatorios() {
+  ejecutarRecordatorios().catch((err) => {
+    console.error('Error comprobando recordatorios:', err.message);
+  });
+}
+comprobarRecordatorios(); // primera comprobación nada más arrancar
+setInterval(comprobarRecordatorios, UNA_HORA_MS);
