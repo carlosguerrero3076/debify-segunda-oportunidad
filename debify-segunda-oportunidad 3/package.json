@@ -1,0 +1,15 @@
+{
+  "name": "debify-segunda-oportunidad",
+  "version": "1.0.0",
+  "description": "Modulo propio de Debify para sustituir Parallel: recopilacion de documentacion de clientes para expedientes de Ley de Segunda Oportunidad.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "recordatorios": "node scripts/enviar-recordatorios.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {}
+}

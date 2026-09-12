@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Debify · Tu expediente</title>
+<link rel="stylesheet" href="/cliente/cliente.css" />
+</head>
+<body>
+  <div id="error-token" class="pantalla hidden">
+    <div class="card">
+      <h1>Enlace no válido</h1>
+      <p class="muted">Este enlace no es correcto o el expediente ya no existe. Ponte en contacto con tu abogado/a de Debify.</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand">Debify</div>
+    </header>
+
+    <main>
+      <div class="resumen-card">
+        <h1 id="titulo-cliente">Hola</h1>
+        <p class="muted">Ve completando esta información y documentación a tu ritmo. Se guarda automáticamente en cada paso.</p>
+
+        <div class="progreso-grande">
+          <div class="progreso-barra"><div id="progreso-relleno" style="width:0%"></div></div>
+          <div class="progreso-texto"><span id="progreso-num">0</span>% completado</div>
+        </div>
+
+        <div id="mensaje-completo" class="mensaje-completo hidden">
+          🎉 ¡Has aportado toda la documentación necesaria! Tu abogado/a ya puede revisarla y preparar la demanda.
+        </div>
+      </div>
+
+      <div id="bloques"></div>
+    </main>
+  </div>
+
+  <script src="/cliente/cliente.js"></script>
+</body>
+</html>
