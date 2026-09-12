@@ -3,6 +3,14 @@
 // depender de paquetes externos ni de instalar nada con npm: el proyecto
 // funciona con "node server.js" y ya esta.
 //
+// IMPORTANTE - PERSISTENCIA: en Render (y en cualquier hosting con disco
+// efimero) los archivos escritos en la carpeta del proyecto desaparecen
+// cada vez que el servicio se reinicia o "duerme". Para que los expedientes
+// y documentos no se pierdan, hay que montar un Disco persistente y decirle
+// a la app donde esta, con la variable de entorno STORAGE_DIR (por ejemplo
+// STORAGE_DIR=/var/data). Sin esa variable, se sigue guardando dentro del
+// proyecto como hasta ahora (valido solo para desarrollo local).
+//
 // Si en el futuro preferis Postgres/MySQL (por ejemplo para compartir base
 // de datos con el resto del software de Debify), esta es la unica capa que
 // habria que reescribir: el resto de la aplicacion solo llama a las
@@ -13,7 +21,8 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 
-const DATA_DIR = path.join(__dirname, 'data');
+const STORAGE_DIR = process.env.STORAGE_DIR || __dirname;
+const DATA_DIR = path.join(STORAGE_DIR, 'data');
 const DB_PATH = path.join(DATA_DIR, 'debify.sqlite');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });

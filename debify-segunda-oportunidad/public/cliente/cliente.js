@@ -59,11 +59,12 @@ function renderItem(item) {
 
   let cuerpo = '';
   if (item.tipo === 'campo') {
+    const valorGuardado = estado === 'aportado' ? r.valor_texto : '';
     cuerpo = `
       <div class="item-cuerpo">
         <div class="fila-input">
-          <input type="text" data-item-id="${item.id}" class="input-campo" value="${estado === 'aportado' ? escapeHtml(r.valor_texto) : ''}" placeholder="Escribe aquí..." />
-          <button class="btn-guardar-campo" data-item-id="${item.id}">Guardar</button>
+          <input type="text" data-item-id="${item.id}" data-valor-guardado="${escapeHtml(valorGuardado)}" class="input-campo" value="${escapeHtml(valorGuardado)}" placeholder="Escribe aquí y sigue con lo siguiente: se guarda solo" />
+          <span class="guardado-indicador" data-item-id="${item.id}"></span>
         </div>
       </div>
     `;
@@ -95,27 +96,15 @@ function renderItem(item) {
 }
 
 function bindEventos() {
-  document.querySelectorAll('.btn-guardar-campo').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const itemId = btn.dataset.itemId;
-      const input = document.querySelector(`.input-campo[data-item-id="${itemId}"]`);
-      const valor = input.value.trim();
-      if (!valor) return;
-      btn.disabled = true;
-      btn.textContent = 'Guardando...';
-      try {
-        const res = await fetch(`/api/cliente/${token}/item/${itemId}/texto`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ valor }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        render(data);
-      } catch (err) {
-        alert('No se pudo guardar: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = 'Guardar';
+  document.querySelectorAll('.input-campo').forEach((input) => {
+    // Se guarda solo, sin botón: al salir del campo o al pulsar Intro,
+    // y solo si el valor ha cambiado de verdad respecto a lo ya guardado.
+    const guardarSiCambio = () => guardarCampo(input);
+    input.addEventListener('blur', guardarSiCambio);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        input.blur(); // dispara guardarSiCambio y quita el foco, como confirmación visual
       }
     });
   });
@@ -145,6 +134,30 @@ function bindEventos() {
       }
     });
   });
+}
+
+async function guardarCampo(input) {
+  const itemId = input.dataset.itemId;
+  const valor = input.value.trim();
+  const valorGuardado = input.dataset.valorGuardado || '';
+  if (!valor || valor === valorGuardado) return; // nada que guardar
+
+  const indicador = document.querySelector(`.guardado-indicador[data-item-id="${itemId}"]`);
+  if (indicador) indicador.textContent = 'Guardando...';
+
+  try {
+    const res = await fetch(`/api/cliente/${token}/item/${itemId}/texto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    render(data);
+  } catch (err) {
+    if (indicador) indicador.textContent = '';
+    alert('No se pudo guardar: ' + err.message);
+  }
 }
 
 function fileToBase64(file) {

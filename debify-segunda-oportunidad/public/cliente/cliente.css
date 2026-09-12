@@ -58,12 +58,9 @@ main { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
 .item-cuerpo input[type=text] {
   width: 100%; padding: .6rem .75rem; border: 1px solid var(--borde); border-radius: 8px; font-size: .95rem;
 }
-.item-cuerpo .fila-input { display: flex; gap: .5rem; }
-.item-cuerpo button {
-  padding: .6rem 1rem; border: none; border-radius: 8px; background: var(--azul); color: white; cursor: pointer; font-size: .9rem; white-space: nowrap;
-}
-.item-cuerpo button:hover { opacity: .92; }
-.item-cuerpo button:disabled { opacity: .5; cursor: default; }
+.item-cuerpo input[type=text]:focus { border-color: var(--azul); outline: none; }
+.item-cuerpo .fila-input { display: flex; align-items: center; gap: .6rem; }
+.guardado-indicador { font-size: .78rem; color: var(--verde); white-space: nowrap; min-width: 70px; }
 
 .motivo-rechazo { background: var(--rojo-claro); color: var(--rojo); padding: .6rem .75rem; border-radius: 8px; font-size: .85rem; margin-top: .5rem; }
 

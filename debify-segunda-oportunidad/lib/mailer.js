@@ -18,7 +18,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const LOG_PATH = path.join(__dirname, '..', 'data', 'emails.log');
+// IMPORTANTE - PERSISTENCIA: usa STORAGE_DIR (Disco persistente en Render)
+// si esta definida, igual que db.js y server.js, para que el log de emails
+// tambien sobreviva a los reinicios del servicio.
+const STORAGE_DIR = process.env.STORAGE_DIR || path.join(__dirname, '..');
+const LOG_DIR = path.join(STORAGE_DIR, 'data');
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+const LOG_PATH = path.join(LOG_DIR, 'emails.log');
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Debify <onboarding@resend.dev>';
 

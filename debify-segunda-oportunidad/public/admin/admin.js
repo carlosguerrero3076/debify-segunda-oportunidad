@@ -268,12 +268,16 @@ function renderBloqueDetalle(expedienteId, bloque) {
           const r = item.respuesta;
           const estado = r ? r.estado : 'pendiente';
           let valorHtml = '';
+          const urlDocumento = `/api/admin/expedientes/${expedienteId}/item/${item.id}/archivo?key=${encodeURIComponent(adminKey)}`;
           if (r?.estado === 'aportado') {
             valorHtml = item.tipo === 'documento'
-              ? `<div class="item-valor">📎 ${escapeHtml(r.archivo_nombre || 'documento subido')}</div>`
+              ? `<div class="item-valor">📎 <a href="${urlDocumento}" target="_blank" rel="noopener">${escapeHtml(r.archivo_nombre || 'documento subido')}</a></div>`
               : `<div class="item-valor">"${escapeHtml(r.valor_texto)}"</div>`;
           } else if (r?.estado === 'rechazado') {
             valorHtml = `<div class="item-valor" style="color:#b3261e">Motivo del rechazo: ${escapeHtml(r.motivo_rechazo)}</div>`;
+            if (item.tipo === 'documento' && r.archivo_nombre) {
+              valorHtml += `<div class="item-valor"><a href="${urlDocumento}" target="_blank" rel="noopener">Ver el documento rechazado</a></div>`;
+            }
           }
           return `
           <div class="item-row">
@@ -284,6 +288,7 @@ function renderBloqueDetalle(expedienteId, bloque) {
             </div>
             <div class="item-estado">
               <span class="estado-dot ${estado}"></span>
+              ${estado === 'aportado' && item.tipo === 'documento' ? `<a class="btn-secondary" style="text-decoration:none" href="${urlDocumento}" target="_blank" rel="noopener">Ver</a>` : ''}
               ${estado === 'aportado' ? `<button class="btn-danger btn-rechazar" data-item-id="${item.id}">Rechazar</button>` : ''}
             </div>
           </div>`;

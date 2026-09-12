@@ -24,7 +24,14 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'cambia-esta-clave';
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+// IMPORTANTE - PERSISTENCIA: si STORAGE_DIR esta definida (por ejemplo
+// /var/data, apuntando a un Disco persistente de Render), los archivos
+// subidos por los clientes se guardan ahi y sobreviven a los reinicios del
+// servicio. Sin esa variable, se guardan dentro del proyecto (solo valido
+// para desarrollo local, se pierden en cada reinicio en hosting con disco
+// efimero).
+const STORAGE_DIR = process.env.STORAGE_DIR || __dirname;
+const UPLOADS_DIR = path.join(STORAGE_DIR, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -182,6 +189,39 @@ async function handleAdminApi(req, res, url) {
     const id = Number(sub[1]);
     const itemId = Number(sub[3]);
     return rechazarItem(req, res, id, itemId);
+  }
+
+  // GET /api/admin/expedientes/:id/item/:itemId/archivo -> abre el documento subido
+  // (para que el abogado pueda revisarlo antes de aceptarlo o rechazarlo)
+  if (
+    req.method === 'GET' &&
+    sub.length === 5 &&
+    sub[0] === 'expedientes' &&
+    sub[2] === 'item' &&
+    sub[4] === 'archivo'
+  ) {
+    const id = Number(sub[1]);
+    const itemId = Number(sub[3]);
+    const respuesta = db
+      .getRespuestasPorExpediente(id)
+      .find((r) => r.item_id === itemId);
+    if (!respuesta || !respuesta.archivo_path) {
+      return sendError(res, 404, 'Este documento no existe o todavía no se ha subido');
+    }
+    const abs = path.join(__dirname, respuesta.archivo_path);
+    if (!fs.existsSync(abs)) {
+      return sendError(res, 404, 'El archivo ya no está disponible en el servidor');
+    }
+    const ext = path.extname(respuesta.archivo_nombre || abs).toLowerCase();
+    const contentType = MIME[ext] || 'application/octet-stream';
+    const data = fs.readFileSync(abs);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      // "inline" para que PDFs e imágenes se abran en el navegador en vez de forzar descarga
+      'Content-Disposition': `inline; filename="${(respuesta.archivo_nombre || 'documento').replace(/"/g, '')}"`,
+      'Content-Length': data.length,
+    });
+    return res.end(data);
   }
 
   // POST /api/admin/expedientes/:id/marcar-redaccion
