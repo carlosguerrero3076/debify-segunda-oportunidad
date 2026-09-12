@@ -133,15 +133,27 @@ async function handleAdminApi(req, res, url) {
   const parts = url.pathname.split('/').filter(Boolean); // ['api','admin', ...]
   const sub = parts.slice(2); // tras 'api','admin'
 
-  // POST /api/admin/recordatorios/probar
+  // GET o POST /api/admin/recordatorios/probar
   // Fuerza ahora mismo la comprobación de recordatorios de 48h (sin esperar
   // a que pasen esas 48h de verdad). Pensado solo para probar que el envío
-  // funciona correctamente.
-  if (req.method === 'POST' && sub.length === 2 && sub[0] === 'recordatorios' && sub[1] === 'probar') {
-    const body = await readJsonBody(req).catch(() => ({}));
-    // Permite forzar el umbral de horas solo para pruebas, por ejemplo
-    // {"horasAviso": 0} para que dispare sin esperar 48h de verdad.
-    const opciones = typeof body.horasAviso === 'number' ? { horasAviso: body.horasAviso } : undefined;
+  // funciona correctamente. Acepta GET (para poder probarlo abriendo la URL
+  // directamente en el navegador) y POST con {"horasAviso": N} en el body,
+  // o ?horasAviso=N como parámetro en la URL, para forzar el umbral.
+  if (
+    (req.method === 'GET' || req.method === 'POST') &&
+    sub.length === 2 &&
+    sub[0] === 'recordatorios' &&
+    sub[1] === 'probar'
+  ) {
+    const body = req.method === 'POST' ? await readJsonBody(req).catch(() => ({})) : {};
+    const horasAvisoQuery = url.searchParams.get('horasAviso');
+    const horasAviso =
+      typeof body.horasAviso === 'number'
+        ? body.horasAviso
+        : horasAvisoQuery !== null
+        ? Number(horasAvisoQuery)
+        : undefined;
+    const opciones = typeof horasAviso === 'number' && !Number.isNaN(horasAviso) ? { horasAviso } : undefined;
     const enviados = await ejecutarRecordatorios(opciones);
     return sendJson(res, 200, { enviados });
   }
