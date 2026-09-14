@@ -17,6 +17,13 @@ function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Igual que escapeHtml, pero convierte además las URLs en enlaces clicables
+// (los textos de ayuda de muchas preguntas incluyen el enlace al trámite).
+function linkificar(str) {
+  const escapado = escapeHtml(str);
+  return escapado.replace(/(https?:\/\/[^\s<]+[^\s<.,;:)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
 async function cargar() {
   try {
     const res = await fetch(`/api/cliente/${token}`);
@@ -85,7 +92,7 @@ function renderItem(item) {
       <div class="item-cabecera">
         <div>
           <div class="item-titulo">${escapeHtml(item.etiqueta)} ${!item.obligatorio ? '<span class="item-opcional">(opcional)</span>' : ''}</div>
-          ${item.ayuda ? `<div class="item-ayuda">${escapeHtml(item.ayuda)}</div>` : ''}
+          ${item.ayuda ? `<div class="item-ayuda">${linkificar(item.ayuda)}</div>` : ''}
         </div>
         <span class="estado-pill ${estado}">${etiquetaEstado}</span>
       </div>
