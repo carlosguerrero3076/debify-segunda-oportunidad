@@ -46,6 +46,7 @@ function render({ propuesta, cliente }) {
     document.getElementById('zona-aceptada').classList.remove('hidden');
     document.getElementById('detalle-aceptacion').textContent =
       `Aceptada por ${propuesta.aceptada_nombre} el ${fmtFechaHora(propuesta.aceptada_at)}.`;
+    document.getElementById('btn-descargar')?.addEventListener('click', () => window.print());
     return;
   }
 

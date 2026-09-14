@@ -59,3 +59,17 @@ main { max-width: 680px; margin: 0 auto; padding: 1.5rem; }
   width: 48px; height: 48px; border-radius: 50%; background: var(--verde-claro); color: var(--verde);
   display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto .75rem;
 }
+
+.btn-secondary {
+  padding: .65rem 1.1rem; border: 1px solid var(--borde); border-radius: 8px; background: white; color: var(--texto);
+  font-size: .92rem; cursor: pointer; margin-top: .5rem;
+}
+.btn-secondary:hover { background: var(--bg); }
+
+@media print {
+  body { background: white; }
+  .topbar, .no-print { display: none !important; }
+  main { max-width: 100%; padding: 0; }
+  .card-propuesta { box-shadow: none; padding: 0; }
+  .texto-propuesta { max-height: none; overflow: visible; border: none; padding: 0; background: white; }
+}
