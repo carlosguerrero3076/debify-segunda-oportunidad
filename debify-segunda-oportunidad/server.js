@@ -489,6 +489,15 @@ async function handleAdminApi(req, res, url) {
     return sendJson(res, 200, { ok: true });
   }
 
+  // POST /api/admin/config/reset-checklist -> BORRA todos los bloques/items
+  // actuales (y en cascada las respuestas que los clientes ya hubieran dado a
+  // esas preguntas) y los sustituye por la version "definitiva" del checklist.
+  // Accion irreversible, pensada para lanzarse una sola vez desde el panel.
+  if (req.method === 'POST' && sub.length === 2 && sub[0] === 'config' && sub[1] === 'reset-checklist') {
+    const bloques = db.resetChecklistABloquesDefinitivos();
+    return sendJson(res, 200, { bloques });
+  }
+
   return sendError(res, 404, 'Ruta de administración no encontrada');
 }
 

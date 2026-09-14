@@ -173,64 +173,80 @@ const FASES = [
   { value: 'denegacion', label: 'Denegación' },
 ];
 
-// --- Seed: checklist documental por defecto (editable luego desde el panel) ---
-function seedChecklistSiVacio() {
-  const { count } = db.prepare('SELECT COUNT(*) AS count FROM bloques').get();
-  if (count > 0) return;
-
-  const bloques = [
+// --- Checklist documental "definitivo" (formulario PARALLEL_CLIENTES - sept.
+// 2026), editable luego desde el panel de Configuración. Se usa tanto para
+// sembrar una base de datos nueva y vacia como para poder restablecer una ya
+// existente a esta version desde el panel (ver resetChecklistABloquesDefinitivos). ---
+function bloquesChecklistDefinitivo() {
+  return [
     {
-      nombre: 'Identidad y situación familiar',
+      nombre: 'Datos personales y familiares',
       items: [
-        ['documento', 'Copia del DNI / NIE en vigor', null, 1],
-        ['campo', 'Estado civil', 'Soltero/a, casado/a, divorciado/a, viudo/a...', 1],
-        ['campo', 'Régimen económico matrimonial', 'Gananciales, separación de bienes... (si aplica)', 0],
-        ['documento', 'Libro de familia o certificado de matrimonio', 'Solo si estás casado/a', 0],
+        ['campo', 'Nombre completo', null, 1],
+        ['campo', 'DNI / NIE', null, 1],
+        ['documento', 'DNI', null, 1],
+        ['campo', 'Número de teléfono', null, 1],
+        ['campo', 'Nacionalidad', null, 1],
+        ['campo', 'Ciudad de nacimiento', null, 1],
+        ['documento', 'Certificado de nacimiento', 'https://sede.mjusticia.gob.es/es/tramites/certificado-nacimiento', 1],
+        ['documento', 'Certificado de antecedentes penales', 'https://sede.mjusticia.gob.es/es/tramites/certificado-antecedentes (validez de 3 meses)', 1],
+        ['campo', 'Estado civil', null, 1],
+        ['documento', 'Certificado de matrimonio', 'https://sede.mjusticia.gob.es/es/tramites/certificado-matrimonio (solo si aplica)', 0],
+        ['campo', '¿Tiene hijos o personas dependientes de los que se haga cargo?', null, 1],
+        ['campo', 'Domicilio actual', null, 1],
+        ['campo', 'Provincia', null, 1],
+        ['documento', 'Certificado de empadronamiento', 'Solicitar en el ayuntamiento de tu localidad', 1],
       ],
     },
     {
-      nombre: 'Ingresos',
+      nombre: 'Situación económica y laboral',
       items: [
-        ['documento', 'Últimas 3 nóminas o certificado de ingresos/prestación', null, 1],
-        ['documento', 'Última declaración de la Renta (IRPF)', null, 1],
-        ['campo', '¿Eres o has sido autónomo en los últimos 2 años?', 'Responde sí o no', 1],
-        ['documento', 'Declaraciones fiscales de autónomo (IVA, IRPF trimestral)', 'Solo si eres/has sido autónomo', 0],
+        ['campo', '¿Tiene cuenta/s bancaria/s? Indique la/s cuenta/s de las que es titular', null, 1],
+        ['documento', 'Certificado de saldo de cuentas bancarias (incluso si es negativo)', 'Solicitar en la app o web de la entidad bancaria', 1],
+        ['documento', 'Movimientos bancarios de los últimos 12 meses', 'De todas las cuentas indicadas en el punto anterior', 1],
+        ['campo', '¿Dispone de participaciones, acciones, depósitos financieros o pensiones de jubilación?', null, 1],
+        ['campo', 'Situación laboral', null, 1],
+        ['documento', 'Informe de vida laboral', 'https://portal.seg-social.gob.es/wps/portal/importass/importass/Categorias/Vida+laboral+e+informes/Informes+sobre+tu+situacion+laboral/Informe+de+tu+vida+laboral', 1],
+        ['campo', 'Ingresos mensuales (salario neto, pensión o, si es autónomo, estimación descontando gastos de explotación)', null, 1],
+        ['documento', 'Documento que justifique ingresos', 'Trabajador por cuenta ajena: últimas 3 nóminas. Autónomo: modelo 303 (IVA) y 130 (IRPF) de los últimos 3 trimestres. Desempleado/pensionista: certificado de prestación o de pensión de la Seguridad Social.', 1],
+        ['documento', 'Rentas de los 3 últimos ejercicios (o certificado de no presentación)', 'https://www2.agenciatributaria.gob.es/wlpl/BUCV-JDIT/AutenticaDniNieContrasteh', 1],
       ],
     },
     {
-      nombre: 'Información bancaria',
+      nombre: 'Insolvencia y deudas',
       items: [
-        ['documento', 'Extractos bancarios de los últimos 6 meses (todas tus cuentas)', null, 1],
-        ['campo', 'Entidades bancarias en las que tienes cuenta abierta', 'Indica el nombre de cada banco', 1],
+        ['campo', 'Hechos de los que deriva la situación de insolvencia (puede indicar varios)', null, 1],
+        ['campo', 'Explicación detallada de cómo llegó a la situación de insolvencia y valoración de la situación actual', 'Es importante detallar para qué se solicitaron los créditos, por qué se tuvo que dejar de pagar, etc. Es la base para que el juez valore la buena fe.', 1],
+        ['documento', 'Certificado de deudas con la Seguridad Social', 'https://portal.seg-social.gob.es/wps/portal/importass/importass/Categorias/Consulta+de+pagos+y+deudas/CCertificado+de+estar+al+corriente+en+las+obligaciones+de+la+Seguridad+Social', 1],
+        ['documento', 'Certificado de deudas con la Agencia Tributaria', 'https://www2.agenciatributaria.gob.es/wlpl/BUCV-JDIT/AutenticaDniNieContrasteh', 1],
+        ['documento', 'Certificado de riesgos CIRBE (Banco de España)', "https://sedeelectronica.bde.es/sede/es/tramites/solicitud-informes-riesgos-cirbe-p58.html — Paso 1: 'Ciudadanos'. Paso 2: 'Electrónico'. Paso 3: 'Obtener mi informe de riesgos por medios electrónicos' con certificado digital. Paso 4: 'Petición de informe'.", 1],
+        ['campo', 'Acreedores (indique todos, puede añadir varios)', null, 1],
+        ['documento', 'Documentos que justifiquen la deuda de cada acreedor', 'Es importante que se identifique bien el importe adeudado.', 1],
+        ['documento', 'Contratos con los acreedores', null, 0],
+        ['campo', 'Importe aproximado adeudado y motivo/destino de la deuda, por cada acreedor', 'Indique una cantidad de deuda por cada acreedor, sin ambigüedad: el deudor tiene la carga de aportar la información necesaria para que el juez verifique el cumplimiento de los requisitos de buena fe.', 1],
       ],
     },
     {
-      nombre: 'Deudas y garantías',
+      nombre: 'Bienes y patrimonio',
       items: [
-        ['documento', 'Listado de acreedores con importes pendientes', 'Bancos, tarjetas, préstamos, particulares...', 1],
-        ['documento', 'Contratos de préstamos, tarjetas de crédito o avales', null, 1],
-        ['campo', 'Número aproximado de acreedores', null, 1],
+        ['campo', '¿Dispone de vivienda en propiedad?', null, 1],
+        ['campo', '¿Ha vendido, donado o enajenado una vivienda en propiedad en los últimos 2 años?', null, 1],
+        ['documento', 'Nota de localización del Registro de Bienes Inmuebles', 'https://sede.registradores.org/site/invitado/propiedad/busqueda?nr=true#noback', 1],
+        ['campo', '¿Dispone de vehículo en propiedad?', null, 1],
+        ['documento', 'Informe de vehículos a su nombre (DGT)', "https://sede.dgt.gob.es/es/vehiculos/informacion-de-vehiculos/informe-de-un-vehiculo/ — Elegir 'Informe detallado' y luego 'Informe vehículos a mi nombre'.", 1],
+        ['campo', 'Otros bienes o activos (identifique y especifique su valor de mercado)', 'Por ejemplo, % de una propiedad, terrenos u otros vehículos.', 0],
       ],
     },
     {
-      nombre: 'Patrimonio y cargas',
+      nombre: 'Gastos',
       items: [
-        ['documento', 'Escrituras de propiedad (vivienda u otros inmuebles)', 'Si tienes bienes inmuebles', 0],
-        ['documento', 'Nota simple del Registro de la Propiedad', null, 0],
-        ['documento', 'Último recibo del IBI', null, 0],
-        ['campo', '¿Tienes vehículos a tu nombre?', 'Indica marca, modelo y año aproximado', 1],
-      ],
-    },
-    {
-      nombre: 'Crédito público',
-      items: [
-        ['documento', 'Certificado de deudas con la AEAT (Hacienda)', null, 1],
-        ['documento', 'Certificado de deudas con la TGSS (Seguridad Social)', null, 1],
-        ['documento', 'Declaraciones de impuestos de los últimos 3 años', 'Solo si hay procedimiento de liquidación', 0],
+        ['campo', 'Gastos fijos mensuales detallados', 'Sea concreto, es imprescindible para el plan de pagos. Ejemplos: alimentación, luz, agua, gas, telefonía, internet, alquiler/hipoteca, gasolina, transporte, seguros, educación, mascotas, gastos extraordinarios, etc.', 1],
       ],
     },
   ];
+}
 
+function insertarBloquesChecklist(bloques) {
   const insBloque = db.prepare('INSERT INTO bloques (nombre, orden) VALUES (?, ?)');
   const insItem = db.prepare(
     'INSERT INTO items (bloque_id, tipo, etiqueta, ayuda, obligatorio, orden) VALUES (?, ?, ?, ?, ?, ?)'
@@ -245,7 +261,24 @@ function seedChecklistSiVacio() {
     });
   });
 }
+
+function seedChecklistSiVacio() {
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM bloques').get();
+  if (count > 0) return;
+  insertarBloquesChecklist(bloquesChecklistDefinitivo());
+}
 seedChecklistSiVacio();
+
+// Restablece TODO el checklist documental (bloques + items) a la version
+// "definitiva". ¡Ojo!: borra los bloques/items actuales, lo que arrastra en
+// cascada (ON DELETE CASCADE) las respuestas que los clientes hubieran dado
+// ya a esas preguntas concretas. Se usa desde un boton explicito en el panel
+// de Configuracion, con doble confirmacion en el navegador.
+function resetChecklistABloquesDefinitivos() {
+  db.exec('DELETE FROM bloques'); // cascada -> items -> respuestas
+  insertarBloquesChecklist(bloquesChecklistDefinitivo());
+  return getChecklist();
+}
 
 // ---------- Helpers ----------
 function nowIso() {
@@ -576,6 +609,7 @@ module.exports = {
   nowIso,
   registrarAuditoria,
   getChecklist,
+  resetChecklistABloquesDefinitivos,
   crearBloque,
   actualizarBloque,
   eliminarBloque,
