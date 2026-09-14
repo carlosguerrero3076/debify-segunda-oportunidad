@@ -20,6 +20,7 @@ const db = require('./db');
 const { enviarEmail } = require('./lib/mailer');
 const { crearZip } = require('./lib/zip');
 const { ejecutarRecordatorios } = require('./scripts/enviar-recordatorios');
+const { ejecutarAvisosImpago } = require('./scripts/enviar-avisos-impago');
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -325,8 +326,9 @@ async function handleAdminApi(req, res, url) {
     const body = await readJsonBody(req);
     const texto = (body.texto || '').toString().trim();
     if (!texto) return sendError(res, 400, 'El texto de la propuesta no puede estar vacío');
+    const tipo = (body.tipo || '').toString().trim() || null;
 
-    const propuesta = db.crearPropuesta(id, texto);
+    const propuesta = db.crearPropuesta(id, texto, tipo);
     const link = `${BASE_URL}/propuesta/?token=${propuesta.token}`;
 
     await enviarEmail({
@@ -340,6 +342,53 @@ async function handleAdminApi(req, res, url) {
     });
 
     return sendJson(res, 201, { propuesta, link });
+  }
+
+  // GET /api/admin/impagos -> listado global para la sección "Impagados" del menú
+  if (req.method === 'GET' && sub.length === 1 && sub[0] === 'impagos') {
+    return sendJson(res, 200, { impagos: db.listarImpagos() });
+  }
+
+  // GET/POST /api/admin/impagos/probar -> fuerza ahora mismo la comprobación
+  // de avisos de impago (sin esperar a los 30 días / 7 días reales). Solo
+  // para pruebas.
+  if ((req.method === 'GET' || req.method === 'POST') && sub.length === 2 && sub[0] === 'impagos' && sub[1] === 'probar') {
+    const enviados = await ejecutarAvisosImpago();
+    return sendJson(res, 200, { enviados });
+  }
+
+  // POST /api/admin/impagos/:id/pagado -> marca el impago como pagado y detiene los avisos
+  if (req.method === 'POST' && sub.length === 3 && sub[0] === 'impagos' && sub[2] === 'pagado') {
+    const id = Number(sub[1]);
+    const impago = db.getImpagoPorId(id);
+    if (!impago) return sendError(res, 404, 'Impago no encontrado');
+    const actualizado = db.marcarImpagoPagado(id);
+    return sendJson(res, 200, { impago: actualizado });
+  }
+
+  // GET /api/admin/expedientes/:id/impagos -> historial de impagos de un expediente
+  if (req.method === 'GET' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'impagos') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    return sendJson(res, 200, { impagos: db.listarImpagosPorExpediente(id) });
+  }
+
+  // POST /api/admin/expedientes/:id/impagos   { importe, concepto, fecha_impago }
+  if (req.method === 'POST' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'impagos') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    const body = await readJsonBody(req);
+    const importe = Number(body.importe);
+    if (!importe || importe <= 0) return sendError(res, 400, 'El importe debe ser un número mayor que 0');
+
+    const impago = db.crearImpago(id, {
+      importe,
+      concepto: body.concepto || null,
+      fecha_impago: body.fecha_impago ? new Date(body.fecha_impago).toISOString() : db.nowIso(),
+    });
+    return sendJson(res, 201, { impago });
   }
 
   // GET /api/admin/expedientes/:id/descargar  -> ZIP con todos los documentos
@@ -701,3 +750,14 @@ function comprobarRecordatorios() {
 }
 comprobarRecordatorios(); // primera comprobación nada más arrancar
 setInterval(comprobarRecordatorios, UNA_HORA_MS);
+
+// ---------------------------------------------------------------------
+// Avisos automáticos de impagados (recordatorio -> suspensión -> juzgado)
+// ---------------------------------------------------------------------
+function comprobarAvisosImpago() {
+  ejecutarAvisosImpago().catch((err) => {
+    console.error('Error comprobando avisos de impago:', err.message);
+  });
+}
+comprobarAvisosImpago(); // primera comprobación nada más arrancar
+setInterval(comprobarAvisosImpago, UNA_HORA_MS);

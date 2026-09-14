@@ -102,6 +102,19 @@ CREATE TABLE IF NOT EXISTS propuestas (
   aceptada_nombre TEXT,
   aceptada_ip TEXT
 );
+
+CREATE TABLE IF NOT EXISTS impagos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expediente_id INTEGER NOT NULL REFERENCES expedientes(id) ON DELETE CASCADE,
+  importe REAL NOT NULL,
+  concepto TEXT,
+  fecha_impago TEXT NOT NULL,
+  estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente','pagado')),
+  pagado_at TEXT,
+  nivel_aviso INTEGER NOT NULL DEFAULT 0,
+  ultimo_aviso_at TEXT,
+  created_at TEXT NOT NULL
+);
 `);
 
 // --- Migracion: columna para el recordatorio recurrente cada 48h ---
@@ -117,6 +130,14 @@ try {
 // redaccion, presentacion, proceso judicial...) ---
 try {
   db.exec("ALTER TABLE expedientes ADD COLUMN fase TEXT NOT NULL DEFAULT 'documental'");
+} catch (err) {
+  // ya existe la columna
+}
+
+// --- Migracion: tipo de plantilla usada para generar el texto de la
+// propuesta de honorarios (segunda_oportunidad / concurso_empresa / libre) ---
+try {
+  db.exec('ALTER TABLE propuestas ADD COLUMN tipo TEXT');
 } catch (err) {
   // ya existe la columna
 }
@@ -326,12 +347,12 @@ function listarComentarios(expedienteId) {
 }
 
 // ---------- Propuestas de honorarios (aceptación simple, sin firma electrónica formal) ----------
-function crearPropuesta(expedienteId, texto) {
+function crearPropuesta(expedienteId, texto, tipo) {
   const token = generarToken();
   const ts = nowIso();
   db.prepare(
-    `INSERT INTO propuestas (expediente_id, texto, token, estado, enviada_at) VALUES (?, ?, ?, 'enviada', ?)`
-  ).run(expedienteId, texto, token, ts);
+    `INSERT INTO propuestas (expediente_id, texto, token, estado, enviada_at, tipo) VALUES (?, ?, ?, 'enviada', ?, ?)`
+  ).run(expedienteId, texto, token, ts, tipo || null);
   const id = Number(db.prepare('SELECT last_insert_rowid() AS id').get().id);
   registrarAuditoria(expedienteId, 'abogado', 'propuesta_enviada', null);
   return getPropuestaPorId(id);
@@ -361,6 +382,53 @@ function aceptarPropuesta(token, { nombre, ip }) {
   ).run(ts, nombre, ip ?? null, propuesta.id);
   registrarAuditoria(propuesta.expediente_id, 'cliente', 'propuesta_aceptada', `Firmado por: ${nombre}`);
   return getPropuestaPorId(propuesta.id);
+}
+
+// ---------- Impagados (recobro de honorarios) ----------
+function crearImpago(expedienteId, { importe, concepto, fecha_impago }) {
+  const ts = nowIso();
+  db.prepare(
+    `INSERT INTO impagos (expediente_id, importe, concepto, fecha_impago, estado, nivel_aviso, created_at)
+     VALUES (?, ?, ?, ?, 'pendiente', 0, ?)`
+  ).run(expedienteId, importe, concepto ?? null, fecha_impago || ts, ts);
+  const id = Number(db.prepare('SELECT last_insert_rowid() AS id').get().id);
+  registrarAuditoria(expedienteId, 'abogado', 'impago_registrado', `Importe: ${importe} €`);
+  return getImpagoPorId(id);
+}
+
+function getImpagoPorId(id) {
+  return db.prepare('SELECT * FROM impagos WHERE id = ?').get(id);
+}
+
+function listarImpagosPorExpediente(expedienteId) {
+  return db
+    .prepare('SELECT * FROM impagos WHERE expediente_id = ? ORDER BY created_at DESC')
+    .all(expedienteId);
+}
+
+// Lista todos los impagos con datos basicos del expediente, para la seccion
+// "Impagados" del menu (mas recientes / pendientes primero).
+function listarImpagos() {
+  return db
+    .prepare(
+      `SELECT impagos.*, expedientes.nombre AS cliente_nombre, expedientes.email AS cliente_email
+       FROM impagos
+       JOIN expedientes ON expedientes.id = impagos.expediente_id
+       ORDER BY (impagos.estado = 'pendiente') DESC, impagos.fecha_impago ASC`
+    )
+    .all();
+}
+
+function marcarImpagoPagado(id) {
+  const ts = nowIso();
+  db.prepare(`UPDATE impagos SET estado = 'pagado', pagado_at = ? WHERE id = ?`).run(ts, id);
+  const impago = getImpagoPorId(id);
+  if (impago) registrarAuditoria(impago.expediente_id, 'abogado', 'impago_pagado', `Importe: ${impago.importe} €`);
+  return impago;
+}
+
+function actualizarAvisoImpago(id, nivel) {
+  db.prepare('UPDATE impagos SET nivel_aviso = ?, ultimo_aviso_at = ? WHERE id = ?').run(nivel, nowIso(), id);
 }
 
 // ---------- Respuestas (progreso del expediente) ----------
@@ -492,4 +560,10 @@ module.exports = {
   getPropuestaPorToken,
   listarPropuestasPorExpediente,
   aceptarPropuesta,
+  crearImpago,
+  getImpagoPorId,
+  listarImpagosPorExpediente,
+  listarImpagos,
+  marcarImpagoPagado,
+  actualizarAvisoImpago,
 };
