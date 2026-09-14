@@ -197,6 +197,12 @@ document.getElementById('btn-nuevo-expediente').addEventListener('click', () => 
       <input type="email" name="email" required />
       <label>Teléfono (opcional)</label>
       <input type="text" name="telefono" />
+      <label>DNI/NIE (opcional)</label>
+      <input type="text" name="dni" />
+      <label>Domicilio (opcional)</label>
+      <input type="text" name="domicilio" />
+      <label>Deuda total aproximada (€, opcional)</label>
+      <input type="number" step="0.01" min="0" name="deuda_total" />
       <label>Abogado asignado (opcional)</label>
       <input type="text" name="abogado" />
       <div class="modal-acciones">
@@ -303,23 +309,38 @@ async function abrirDetalle(id, origen) {
   await renderDetalle(id);
 }
 
+function renderFichaCliente(id, expediente) {
+  return `
+    <div class="bloque-card">
+      <div class="bloque-card-header">
+        <h3>Datos del cliente</h3>
+        <span class="muted">Se guardan automáticamente al salir del campo</span>
+      </div>
+      <div class="campos-fila">
+        <label>DNI/NIE<input type="text" id="ficha-dni" value="${escapeHtml(expediente.dni || '')}" /></label>
+        <label>Deuda total aproximada (€)<input type="number" step="0.01" min="0" id="ficha-deuda" value="${expediente.deuda_total ?? ''}" /></label>
+      </div>
+      <label>Domicilio<input type="text" id="ficha-domicilio" value="${escapeHtml(expediente.domicilio || '')}" /></label>
+    </div>
+  `;
+}
+
 async function renderDetalle(id) {
-  const [{ expediente, progreso, link }, fases, { comentarios }, { propuestas }, { impagos }] = await Promise.all([
-    api(`/expedientes/${id}`),
-    obtenerFases(),
-    api(`/expedientes/${id}/comentarios`),
-    api(`/expedientes/${id}/propuestas`),
-    api(`/expedientes/${id}/impagos`),
-  ]);
+  const esDocumental = vistaOrigenDetalle === 'documental';
+  const peticiones = [api(`/expedientes/${id}`), obtenerFases()];
+  if (!esDocumental) {
+    peticiones.push(api(`/expedientes/${id}/comentarios`), api(`/expedientes/${id}/propuestas`), api(`/expedientes/${id}/impagos`));
+  }
+  const [{ expediente, progreso, link }, fases, comentariosRes, propuestasRes, impagosRes] = await Promise.all(peticiones);
   const cont = document.getElementById('detalle-contenido');
 
-  cont.innerHTML = `
+  const cabecera = `
     <div class="detalle-header">
       <h2>${escapeHtml(expediente.nombre)}</h2>
       <div class="muted">${escapeHtml(expediente.email)} ${expediente.telefono ? '· ' + escapeHtml(expediente.telefono) : ''}</div>
       <div class="detalle-meta">
-        <div><strong>Progreso:</strong> <span class="detalle-progreso-grande">${progreso.porcentajeTotal}%</span></div>
-        <div><strong>Estado:</strong> ${badgeEstado(expediente.estado)}</div>
+        ${esDocumental ? `<div><strong>Progreso:</strong> <span class="detalle-progreso-grande">${progreso.porcentajeTotal}%</span></div>
+        <div><strong>Estado:</strong> ${badgeEstado(expediente.estado)}</div>` : ''}
         <div>
           <strong>Fase:</strong>
           <select id="select-fase">
@@ -329,7 +350,9 @@ async function renderDetalle(id) {
         <div><strong>Abogado:</strong> ${escapeHtml(expediente.abogado || '—')}</div>
         <div><strong>Alta:</strong> ${fmtFecha(expediente.created_at)}</div>
       </div>
-      <div class="detalle-acciones">
+      ${
+        esDocumental
+          ? `<div class="detalle-acciones">
         <button class="btn-secondary" id="btn-copiar-enlace">Copiar enlace del cliente</button>
         <button class="btn-secondary" id="btn-descargar-zip">Descargar documentación (.zip)</button>
         ${
@@ -337,28 +360,82 @@ async function renderDetalle(id) {
             ? '<button class="btn-primary" id="btn-marcar-redaccion">Marcar como "en redacción"</button>'
             : ''
         }
-      </div>
+      </div>`
+          : ''
+      }
     </div>
-    ${progreso.bloques.map((b) => renderBloqueDetalle(id, b)).join('')}
-    ${renderComentarios(comentarios)}
-    ${renderPropuestas(propuestas, expediente)}
-    ${renderImpagos(impagos)}
   `;
 
-  document.getElementById('btn-copiar-enlace').addEventListener('click', () => {
-    navigator.clipboard?.writeText(link);
-    alert('Enlace copiado:\n' + link);
-  });
-  document.getElementById('btn-descargar-zip').addEventListener('click', () => {
-    window.open(`/api/admin/expedientes/${id}/descargar?key=${encodeURIComponent(adminKey)}`, '_blank');
-  });
-  document.getElementById('btn-marcar-redaccion')?.addEventListener('click', async () => {
-    await api(`/expedientes/${id}/marcar-redaccion`, { method: 'POST', body: '{}' });
-    renderDetalle(id);
-  });
+  cont.innerHTML = esDocumental
+    ? `${cabecera}${progreso.bloques.map((b) => renderBloqueDetalle(id, b)).join('')}`
+    : `${cabecera}
+       ${renderFichaCliente(id, expediente)}
+       ${renderComentarios(comentariosRes.comentarios)}
+       ${renderPropuestas(propuestasRes.propuestas, expediente)}
+       ${renderImpagos(impagosRes.impagos)}`;
+
   document.getElementById('select-fase').addEventListener('change', async (e) => {
     await api(`/expedientes/${id}/fase`, { method: 'PUT', body: JSON.stringify({ fase: e.target.value }) });
     cargarExpedientes(); // por si vuelven al listado, que ya se vea actualizado
+  });
+
+  if (esDocumental) {
+    document.getElementById('btn-copiar-enlace').addEventListener('click', () => {
+      navigator.clipboard?.writeText(link);
+      alert('Enlace copiado:\n' + link);
+    });
+    document.getElementById('btn-descargar-zip').addEventListener('click', () => {
+      window.open(`/api/admin/expedientes/${id}/descargar?key=${encodeURIComponent(adminKey)}`, '_blank');
+    });
+    document.getElementById('btn-marcar-redaccion')?.addEventListener('click', async () => {
+      await api(`/expedientes/${id}/marcar-redaccion`, { method: 'POST', body: '{}' });
+      renderDetalle(id);
+    });
+
+    cont.querySelectorAll('.btn-rechazar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const itemId = btn.dataset.itemId;
+        abrirModal(`
+          <h3>Solicitar corrección</h3>
+          <p class="muted">Explica al cliente qué debe corregir o volver a aportar en este punto.</p>
+          <form id="form-rechazo">
+            <textarea name="motivo" rows="4" placeholder="Ej: El extracto bancario no incluye los últimos 2 meses" required></textarea>
+            <div class="modal-acciones">
+              <button type="button" class="btn-secondary" id="modal-cancelar">Cancelar</button>
+              <button type="submit" class="btn-primary">Enviar al cliente</button>
+            </div>
+          </form>
+        `);
+        document.getElementById('modal-cancelar').addEventListener('click', cerrarModal);
+        document.getElementById('form-rechazo').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const motivo = new FormData(e.target).get('motivo');
+          await api(`/expedientes/${id}/item/${itemId}/rechazar`, {
+            method: 'POST',
+            body: JSON.stringify({ motivo }),
+          });
+          cerrarModal();
+          renderDetalle(id);
+        });
+      });
+    });
+
+    return;
+  }
+
+  // --- A partir de aquí, solo para la vista "Expedientes" (ficha de cliente) ---
+
+  async function guardarFichaCliente() {
+    const dni = document.getElementById('ficha-dni').value.trim();
+    const domicilio = document.getElementById('ficha-domicilio').value.trim();
+    const deuda_total = document.getElementById('ficha-deuda').value;
+    await api(`/expedientes/${id}/datos-cliente`, {
+      method: 'PUT',
+      body: JSON.stringify({ dni, domicilio, deuda_total }),
+    });
+  }
+  ['ficha-dni', 'ficha-domicilio', 'ficha-deuda'].forEach((elId) => {
+    document.getElementById(elId).addEventListener('change', guardarFichaCliente);
   });
 
   const AUTOR_KEY = 'debify_admin_autor';
@@ -437,34 +514,6 @@ async function renderDetalle(id) {
 
   cont.querySelectorAll('.btn-pagado-impago').forEach((btn) => {
     btn.addEventListener('click', () => marcarImpagoPagado(Number(btn.dataset.id), () => renderDetalle(id)));
-  });
-
-  cont.querySelectorAll('.btn-rechazar').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const itemId = btn.dataset.itemId;
-      abrirModal(`
-        <h3>Solicitar corrección</h3>
-        <p class="muted">Explica al cliente qué debe corregir o volver a aportar en este punto.</p>
-        <form id="form-rechazo">
-          <textarea name="motivo" rows="4" placeholder="Ej: El extracto bancario no incluye los últimos 2 meses" required></textarea>
-          <div class="modal-acciones">
-            <button type="button" class="btn-secondary" id="modal-cancelar">Cancelar</button>
-            <button type="submit" class="btn-primary">Enviar al cliente</button>
-          </div>
-        </form>
-      `);
-      document.getElementById('modal-cancelar').addEventListener('click', cerrarModal);
-      document.getElementById('form-rechazo').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const motivo = new FormData(e.target).get('motivo');
-        await api(`/expedientes/${id}/item/${itemId}/rechazar`, {
-          method: 'POST',
-          body: JSON.stringify({ motivo }),
-        });
-        cerrarModal();
-        renderDetalle(id);
-      });
-    });
   });
 }
 
