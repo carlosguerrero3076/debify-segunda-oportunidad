@@ -179,6 +179,9 @@ async function handleAdminApi(req, res, url) {
       email: body.email,
       telefono: body.telefono,
       abogado: body.abogado,
+      dni: body.dni,
+      domicilio: body.domicilio,
+      deuda_total: body.deuda_total ? Number(body.deuda_total) : null,
     });
     const link = enlaceCliente(expediente.token);
 
@@ -284,6 +287,20 @@ async function handleAdminApi(req, res, url) {
     }
     db.registrarAuditoria(id, 'abogado', 'fase_cambiada', body.fase);
     return sendJson(res, 200, { ok: true });
+  }
+
+  // PUT /api/admin/expedientes/:id/datos-cliente   { dni, domicilio, deuda_total }
+  if (req.method === 'PUT' && sub.length === 3 && sub[0] === 'expedientes' && sub[2] === 'datos-cliente') {
+    const id = Number(sub[1]);
+    const expediente = db.getExpedientePorId(id);
+    if (!expediente) return sendError(res, 404, 'Expediente no encontrado');
+    const body = await readJsonBody(req);
+    const actualizado = db.actualizarDatosCliente(id, {
+      dni: body.dni,
+      domicilio: body.domicilio,
+      deuda_total: body.deuda_total !== '' && body.deuda_total != null ? Number(body.deuda_total) : null,
+    });
+    return sendJson(res, 200, { expediente: actualizado });
   }
 
   // GET /api/admin/expedientes/:id/comentarios

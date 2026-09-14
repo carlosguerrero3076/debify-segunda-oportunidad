@@ -142,6 +142,24 @@ try {
   // ya existe la columna
 }
 
+// --- Migracion: datos personales del cliente en la ficha de "Expedientes"
+// (independientes del checklist documental, que vive solo en "Documental") ---
+try {
+  db.exec('ALTER TABLE expedientes ADD COLUMN dni TEXT');
+} catch (err) {
+  // ya existe la columna
+}
+try {
+  db.exec('ALTER TABLE expedientes ADD COLUMN domicilio TEXT');
+} catch (err) {
+  // ya existe la columna
+}
+try {
+  db.exec('ALTER TABLE expedientes ADD COLUMN deuda_total REAL');
+} catch (err) {
+  // ya existe la columna
+}
+
 // Fases del ciclo de vida completo del expediente (mas alla de "estado",
 // que solo controla la recopilacion documental con el cliente).
 const FASES = [
@@ -292,15 +310,37 @@ function eliminarItem(id) {
 }
 
 // ---------- Expedientes ----------
-function crearExpediente({ nombre, email, telefono, abogado }) {
+function crearExpediente({ nombre, email, telefono, abogado, dni, domicilio, deuda_total }) {
   const token = generarToken();
   const ts = nowIso();
   db.prepare(
-    `INSERT INTO expedientes (nombre, email, telefono, abogado, token, estado, created_at, last_activity_at)
-     VALUES (?, ?, ?, ?, ?, 'en_progreso', ?, ?)`
-  ).run(nombre, email, telefono ?? null, abogado ?? null, token, ts, ts);
+    `INSERT INTO expedientes (nombre, email, telefono, abogado, token, estado, created_at, last_activity_at, dni, domicilio, deuda_total)
+     VALUES (?, ?, ?, ?, ?, 'en_progreso', ?, ?, ?, ?, ?)`
+  ).run(
+    nombre,
+    email,
+    telefono ?? null,
+    abogado ?? null,
+    token,
+    ts,
+    ts,
+    dni ?? null,
+    domicilio ?? null,
+    deuda_total ?? null
+  );
   const id = Number(db.prepare('SELECT last_insert_rowid() AS id').get().id);
   registrarAuditoria(id, 'sistema', 'expediente_creado', `Alta de expediente para ${email}`);
+  return getExpedientePorId(id);
+}
+
+function actualizarDatosCliente(id, { dni, domicilio, deuda_total }) {
+  db.prepare('UPDATE expedientes SET dni = ?, domicilio = ?, deuda_total = ? WHERE id = ?').run(
+    dni ?? null,
+    domicilio ?? null,
+    deuda_total ?? null,
+    id
+  );
+  registrarAuditoria(id, 'abogado', 'datos_cliente_actualizados', null);
   return getExpedientePorId(id);
 }
 
@@ -543,6 +583,7 @@ module.exports = {
   actualizarItem,
   eliminarItem,
   crearExpediente,
+  actualizarDatosCliente,
   getExpedientePorId,
   getExpedientePorToken,
   listarExpedientes,
