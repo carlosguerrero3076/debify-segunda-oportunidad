@@ -95,14 +95,23 @@ main { flex: 1; padding: 2rem; max-width: 980px; }
 .badge-completo { background: var(--verde-claro); color: var(--verde); }
 .badge-redaccion { background: #fdf3e3; color: #8a5a00; }
 .badge-fase { background: #f1eafb; color: #5b3aa8; }
+.badge-danger { background: var(--rojo-claro); color: var(--rojo); }
 
 #select-fase { font-size: .85rem; padding: .3rem .5rem; border: 1px solid var(--borde); border-radius: 6px; background: white; }
 
 .form-comentario { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
-.form-comentario input, .form-comentario textarea {
+.form-comentario input, .form-comentario textarea, .form-comentario select {
   width: 100%; padding: .55rem .7rem; border: 1px solid var(--borde); border-radius: 8px; font-size: .88rem; font-family: inherit; resize: vertical;
 }
 .form-comentario button { align-self: flex-start; }
+
+.campos-plantilla-propuesta { display: flex; flex-direction: column; gap: .6rem; padding: .75rem; background: #f7f8fa; border-radius: 8px; border: 1px solid var(--borde); }
+.campos-fila { display: flex; gap: .75rem; flex-wrap: wrap; }
+.campos-fila label, .campos-plantilla-propuesta > label { display: flex; flex-direction: column; gap: .25rem; font-size: .82rem; color: #555; flex: 1; min-width: 160px; }
+.campos-fila label.fila-check, .campos-plantilla-propuesta .fila-check { flex-direction: row; align-items: center; gap: .4rem; font-size: .85rem; }
+.campos-fila input, .campos-plantilla-propuesta input, .campos-plantilla-propuesta select {
+  padding: .45rem .6rem; border: 1px solid var(--borde); border-radius: 6px; font-size: .85rem; font-family: inherit;
+}
 
 .lista-comentarios { display: flex; flex-direction: column; gap: .75rem; }
 .comentario { border-top: 1px solid var(--borde); padding-top: .6rem; }

@@ -28,6 +28,10 @@
             <button class="nav-btn" data-view="documental">📄 Documental</button>
           </div>
           <div class="sidebar-seccion">
+            <div class="sidebar-titulo">Cobros</div>
+            <button class="nav-btn" data-view="impagados">💸 Impagados</button>
+          </div>
+          <div class="sidebar-seccion">
             <div class="sidebar-titulo">Próximamente</div>
             <button class="nav-btn nav-btn-disabled" disabled title="Próximamente">🗂️ Administración</button>
             <button class="nav-btn nav-btn-disabled" disabled title="Próximamente">📈 Ventas</button>
@@ -81,6 +85,28 @@
             <tbody id="tabla-documental"></tbody>
           </table>
           <p id="documental-vacio" class="muted hidden">Todavía no hay expedientes. Crea el primero desde la pestaña "Expedientes".</p>
+        </section>
+
+        <!-- VISTA: IMPAGADOS (recobro de honorarios) -->
+        <section id="view-impagados" class="view hidden">
+          <div class="view-header">
+            <h2>Impagados</h2>
+          </div>
+          <p class="muted">Clientes con honorarios pendientes de pago. Los avisos por email se envían automáticamente: recordatorio al registrarlo, aviso de suspensión a los 30 días y luego un aviso semanal de reclamación judicial, hasta que se marque como pagado.</p>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Importe</th>
+                <th>Concepto</th>
+                <th>Fecha de impago</th>
+                <th>Estado / Aviso</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-impagados"></tbody>
+          </table>
+          <p id="impagados-vacio" class="muted hidden">No hay honorarios impagados registrados.</p>
         </section>
 
         <!-- VISTA: DETALLE DE UN EXPEDIENTE -->
