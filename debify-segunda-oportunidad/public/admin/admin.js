@@ -187,6 +187,13 @@ function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Igual que escapeHtml, pero convierte además las URLs en enlaces clicables
+// (los textos de ayuda de muchas preguntas incluyen el enlace al trámite).
+function linkificar(str) {
+  const escapado = escapeHtml(str);
+  return escapado.replace(/(https?:\/\/[^\s<]+[^\s<.,;:)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
 document.getElementById('btn-nuevo-expediente').addEventListener('click', () => {
   abrirModal(`
     <h3>Nuevo expediente</h3>
@@ -544,7 +551,7 @@ function renderBloqueDetalle(expedienteId, bloque) {
           <div class="item-row">
             <div>
               <div class="item-label">${escapeHtml(item.etiqueta)} ${item.obligatorio ? '' : '<span class="muted">(opcional)</span>'}</div>
-              ${item.ayuda ? `<div class="item-ayuda">${escapeHtml(item.ayuda)}</div>` : ''}
+              ${item.ayuda ? `<div class="item-ayuda">${linkificar(item.ayuda)}</div>` : ''}
               ${valorHtml}
             </div>
             <div class="item-estado">
@@ -1048,6 +1055,20 @@ function bindConfigEvents() {
 document.getElementById('btn-nuevo-bloque').addEventListener('click', async () => {
   await api('/config/bloque', { method: 'POST', body: JSON.stringify({ nombre: 'Nuevo bloque', orden: 99 }) });
   cargarConfig();
+});
+
+document.getElementById('btn-restablecer-definitivo').addEventListener('click', async () => {
+  const ok1 = confirm(
+    '¿Restablecer el checklist documental al formulario definitivo (Parallel, sept. 2026)?\n\n' +
+      'Esto BORRA todos los bloques y preguntas actuales y los sustituye por los del formulario definitivo. ' +
+      'Si algún cliente ya había respondido o subido documentos para las preguntas actuales, esas respuestas se perderán.'
+  );
+  if (!ok1) return;
+  const ok2 = confirm('Esta acción no se puede deshacer. ¿Seguro que quieres continuar?');
+  if (!ok2) return;
+  await api('/config/reset-checklist', { method: 'POST', body: '{}' });
+  cargarConfig();
+  alert('Checklist restablecido al formulario definitivo.');
 });
 
 // ---------------------------------------------------------------------

@@ -56,7 +56,8 @@ body { margin: 0; background: var(--bg); color: var(--texto); }
 .nav-btn-disabled:hover { background: none; }
 
 main { flex: 1; padding: 2rem; max-width: 980px; }
-.view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; gap: .75rem; flex-wrap: wrap; }
+.view-header > div { display: flex; gap: .5rem; flex-wrap: wrap; }
 
 @media (max-width: 720px) {
   .layout { flex-direction: column; }
