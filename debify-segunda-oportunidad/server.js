@@ -757,7 +757,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\nDebify · módulo de documentación (Segunda Oportunidad)`);
-  console.log(`Panel interno:  ${BASE_URL}/admin/?key=${ADMIN_KEY}`);
+  console.log(`Panel interno:  ${BASE_URL}/admin/`);
   console.log(`(los enlaces de cada cliente se generan al crear su expediente)\n`);
 });
 
