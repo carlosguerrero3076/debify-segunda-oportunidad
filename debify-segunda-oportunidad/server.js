@@ -688,12 +688,12 @@ async function finalizarActualizacion(res, expediente) {
     db.registrarAuditoria(expediente.id, 'sistema', 'expediente_completado', null);
 
     await enviarEmail({
-      to: 'equipo-legal@debify.es', // TODO: usar el email real del abogado asignado (campo "abogado")
+      to: 'documentacion@debify.es', // TODO: usar el email real del abogado asignado (campo "abogado")
       subject: `Debify — Expediente de ${expediente.nombre} completo al 100%`,
       body:
         `El cliente ${expediente.nombre} (${expediente.email}) ha completado toda la documentación obligatoria.\n\n` +
         `Ya se puede revisar y redactar la demanda.\n\n` +
-        `Panel: ${BASE_URL}/admin/?key=${ADMIN_KEY}`,
+        `Panel: ${BASE_URL}/admin/ (entra con tu clave de administración habitual)`,
     });
   }
 
